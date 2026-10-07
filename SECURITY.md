@@ -8,7 +8,7 @@ published to an untrusted network.
 
 ## Reporting a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/cuongle2503/nexus-agent/security/advisories/new).
+Use [GitHub private vulnerability reporting](https://github.com/nguoimoihoccode/nexus-agent/security/advisories/new).
 Do not open a public issue with exploit details, credentials, private user data, or
 environment contents.
 

@@ -1,10 +1,10 @@
-* @cuongle2503
+* @nguoimoihoccode
 
-/.github/ @cuongle2503
-/backend/.deepagents/ @cuongle2503
-/backend/migrations/ @cuongle2503
-/backend/source/agents/ @cuongle2503
-/backend/source/security/ @cuongle2503
-/docker-compose.yml @cuongle2503
-/docker-compose.beta.yml @cuongle2503
-/scripts/security-audit.sh @cuongle2503
+/.github/ @nguoimoihoccode
+/backend/.deepagents/ @nguoimoihoccode
+/backend/migrations/ @nguoimoihoccode
+/backend/source/agents/ @nguoimoihoccode
+/backend/source/security/ @nguoimoihoccode
+/docker-compose.yml @nguoimoihoccode
+/docker-compose.beta.yml @nguoimoihoccode
+/scripts/security-audit.sh @nguoimoihoccode
