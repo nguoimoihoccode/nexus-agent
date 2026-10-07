@@ -1,0 +1,10 @@
+* @cuongle2503
+
+/.github/ @cuongle2503
+/backend/.deepagents/ @cuongle2503
+/backend/migrations/ @cuongle2503
+/backend/source/agents/ @cuongle2503
+/backend/source/security/ @cuongle2503
+/docker-compose.yml @cuongle2503
+/docker-compose.beta.yml @cuongle2503
+/scripts/security-audit.sh @cuongle2503

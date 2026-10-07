@@ -1,0 +1,75 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - /backend
+      - /ai-trader-worker
+      - /quant-data-worker
+      - /quant-worker
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:47"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 8
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:02"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+      - /ai-trader-worker
+      - /quant-data-worker
+      - /quant-worker
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:17"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    groups:
+      application-base-images:
+        patterns:
+          - "*"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:47"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:32"
+      timezone: Asia/Ho_Chi_Minh
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: postgres
+        update-types:
+          - version-update:semver-major
+    groups:
+      beta-runtime-images:
+        patterns:
+          - "*"

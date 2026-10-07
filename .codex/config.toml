@@ -1,0 +1,22 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Retain Codex defaults for model, sandbox, approvals, and web.
+persistent_instructions = """
+Follow the nearest AGENTS.md and use docs/README.md as the repository map.
+Keep docs/architecture/overview.md synchronized with structural changes.
+"""
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 4
+max_depth = 1
+
+[agents.explorer]
+description = "Read-only Nexus code-path explorer for evidence gathering."
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+description = "Read-only reviewer for correctness, security, docs, and missing tests."
+config_file = "agents/reviewer.toml"

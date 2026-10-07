@@ -1,0 +1,282 @@
+services:
+  postgres:
+    image: postgres:16.14-alpine3.24@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus123}
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-nexus_agent}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-nexus} -d ${POSTGRES_DB_NAME:-nexus_agent}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  domain-migrate:
+    build:
+      context: ./backend
+      additional_contexts:
+        uv_cache: ${HOME}/.cache/uv
+      secrets:
+        - host_ca
+    restart: "no"
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-nexus}:${POSTGRES_PASSWORD:-nexus123}@postgres:5432/${POSTGRES_DB_NAME:-nexus_agent}
+    command: ["python", "-m", "source.infrastructure.migrations", "bootstrap"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      additional_contexts:
+        uv_cache: ${HOME}/.cache/uv
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets:
+        - host_ca
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus123}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-nexus_agent}
+      QUANT_WORKER_URL: http://quant-worker:8000
+      QUANT_DATA_WORKER_URL: http://quant-data-worker:8000
+      AI_TRADER_API_BASE_URL: http://ai-trader-worker:8000/api
+      NEXUS_LOG_LEVEL: ${NEXUS_LOG_LEVEL:-INFO}
+      NEXUS_LOG_FORMAT: ${NEXUS_LOG_FORMAT:-json}
+      LANGGRAPH_STRICT_MSGPACK: "true"
+      SSL_CERT_FILE: /etc/ssl/certs/host-ca-certificates.crt
+    volumes:
+      - ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/certs/host-ca-certificates.crt:ro
+    ports:
+      - "127.0.0.1:${LANGGRAPH_PORT:-2024}:2024"
+    depends_on:
+      domain-migrate:
+        condition: service_completed_successfully
+      quant-worker:
+        condition: service_healthy
+      quant-data-worker:
+        condition: service_healthy
+      ai-trader-worker:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client; c=http.client.HTTPConnection('127.0.0.1',2024,timeout=4); c.request('GET','/ok'); assert c.getresponse().status == 200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  quant-worker:
+    build:
+      context: ./quant-worker
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets:
+        - host_ca
+    restart: unless-stopped
+    environment:
+      QLIB_DATA_DIR: /data/qlib
+      QUANT_ARTIFACTS_DIR: /data/artifacts
+      NEXUS_ENV: ${NEXUS_ENV:-development}
+      QUANT_WORKER_GLOBAL_ACTIVE_JOB_LIMIT: ${QUANT_WORKER_GLOBAL_ACTIVE_JOB_LIMIT:-4}
+      QUANT_WORKER_QUEUED_JOB_TTL_SECONDS: ${QUANT_WORKER_QUEUED_JOB_TTL_SECONDS:-86400}
+      QUANT_WORKER_MAX_EXECUTION_SECONDS: ${QUANT_WORKER_MAX_EXECUTION_SECONDS:-3600}
+      QUANT_WORKER_ACTOR_STORAGE_LIMIT_BYTES: ${QUANT_WORKER_ACTOR_STORAGE_LIMIT_BYTES:-5368709120}
+      QUANT_WORKER_ARTIFACT_RETENTION_SECONDS: ${QUANT_WORKER_ARTIFACT_RETENTION_SECONDS:-7776000}
+      NEXUS_LOG_LEVEL: ${NEXUS_LOG_LEVEL:-INFO}
+      NEXUS_LOG_FORMAT: ${NEXUS_LOG_FORMAT:-json}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker}
+    volumes:
+      - qlib-data:/data/qlib
+      - quant-artifacts:/data/artifacts
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/health'); assert c.getresponse().status == 200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  quant-data-worker:
+    build:
+      context: ./quant-data-worker
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets:
+        - host_ca
+    restart: unless-stopped
+    environment:
+      QUANT_DATA_WORKER_DATA_DIR: /data/qlib
+      QUANT_DATA_WORKER_STAGING_DIR: /data/staging
+      NEXUS_ENV: ${NEXUS_ENV:-development}
+      NEXUS_LOG_LEVEL: ${NEXUS_LOG_LEVEL:-INFO}
+      NEXUS_LOG_FORMAT: ${NEXUS_LOG_FORMAT:-json}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker,quant-data-worker}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker,quant-data-worker}
+      SSL_CERT_FILE: /etc/ssl/certs/host-ca-certificates.crt
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/host-ca-certificates.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/host-ca-certificates.crt
+    volumes:
+      - qlib-data:/data/qlib
+      - quant-staging:/data/staging
+      - ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/certs/host-ca-certificates.crt:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/health'); assert c.getresponse().status == 200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ai-trader-worker:
+    build:
+      context: ./ai-trader-worker
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets:
+        - host_ca
+    restart: unless-stopped
+    env_file:
+      - path: ./ai-trader-worker/.env
+        required: false
+    environment:
+      DB_PATH: /data/clawtrader.db
+      NEXUS_ENV: ${NEXUS_ENV:-development}
+      NEXUS_LOG_LEVEL: ${NEXUS_LOG_LEVEL:-INFO}
+      NEXUS_LOG_FORMAT: ${NEXUS_LOG_FORMAT:-json}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker,quant-data-worker,ai-trader-worker}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker,quant-data-worker,ai-trader-worker}
+      SSL_CERT_FILE: /etc/ssl/certs/host-ca-certificates.crt
+    volumes:
+      - ai-trader-data:/data
+      - ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/certs/host-ca-certificates.crt:ro
+    ports:
+      - "127.0.0.1:${AI_TRADER_PORT:-8100}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/health'); assert c.getresponse().status == 200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ai-trader-worker-refresh:
+    build:
+      context: ./ai-trader-worker
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets:
+        - host_ca
+    restart: unless-stopped
+    command: ["python", "-m", "worker.daemon"]
+    env_file:
+      - path: ./ai-trader-worker/.env
+        required: false
+    environment:
+      DB_PATH: /data/clawtrader.db
+      NEXUS_ENV: ${NEXUS_ENV:-development}
+      NEXUS_LOG_LEVEL: ${NEXUS_LOG_LEVEL:-INFO}
+      NEXUS_LOG_FORMAT: ${NEXUS_LOG_FORMAT:-json}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker,quant-data-worker,ai-trader-worker}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,postgres,backend,quant-worker,quant-data-worker,ai-trader-worker}
+      SSL_CERT_FILE: /etc/ssl/certs/host-ca-certificates.crt
+    volumes:
+      - ai-trader-data:/data
+      - ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}:/etc/ssl/certs/host-ca-certificates.crt:ro
+    depends_on:
+      ai-trader-worker:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets:
+        - host_ca
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-Y", "off", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  postgres-data:
+  qlib-data:
+  quant-artifacts:
+  quant-staging:
+  ai-trader-data:
+
+secrets:
+  host_ca:
+    file: ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}

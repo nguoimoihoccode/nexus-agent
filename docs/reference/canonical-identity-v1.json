@@ -1,0 +1,55 @@
+{
+  "schema_version": "1",
+  "request_vector": {
+    "namespace": "openbb_ohlcv",
+    "payload": {
+      "symbols": [
+        "AAPL",
+        "MSFT"
+      ],
+      "start_date": "2024-01-01",
+      "end_date": "2024-01-05",
+      "provider": "yfinance",
+      "frequency": "1d",
+      "adjustment": "auto"
+    },
+    "canonical_json": "{\"adjustment\":\"auto\",\"end_date\":\"2024-01-05\",\"frequency\":\"1d\",\"provider\":\"yfinance\",\"start_date\":\"2024-01-01\",\"symbols\":[\"AAPL\",\"MSFT\"]}",
+    "request_fingerprint": "rqf_v1_5fec3c2a1e0e4391461d77b85abee799a9d9c26d9a7a50cf02e48fc58ba3dcda"
+  },
+  "action_vector": {
+    "payload": {
+      "tool_name": "publish_ai_trader_strategy",
+      "arguments": {
+        "market": "us-stock",
+        "content": "Research note"
+      },
+      "actor_key": "v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_boundary": "ai-trader-worker"
+    },
+    "action_fingerprint": "act_v1_507b0d7f48d4077e433df37a7fc924b78b056d38ce7d9299c214cfeaf7fe0a2d"
+  },
+  "content_vector": {
+    "namespace": "openbb_ohlcv",
+    "payload": {
+      "schema": [
+        "date",
+        "symbol",
+        "close"
+      ],
+      "records": [
+        {
+          "date": "2024-01-02",
+          "symbol": "AAPL",
+          "close": 101.0
+        },
+        {
+          "date": "2024-01-02",
+          "symbol": "MSFT",
+          "close": 201.0
+        }
+      ]
+    },
+    "content_hash": "sha256:02eee179c1ff5390c6b8e227483c98eb69b825ee18b7816d2ce3719a1260e115",
+    "staging_revision_id": "stg_v1_02eee179c1ff5390c6b8e227"
+  }
+}

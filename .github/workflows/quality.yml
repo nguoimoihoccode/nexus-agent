@@ -1,0 +1,360 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: 0.10.6
+  UV_HTTP_TIMEOUT: 300
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEEPSEEK_API_KEY: ci-${{ github.run_id }} # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --locked --extra dev
+      - name: Check architecture boundaries and runtime registry
+        run: uv run --project backend python scripts/check-architecture.py
+      - name: Test backend
+        working-directory: backend
+        run: uv run python -m unittest discover -s tests
+      - name: Compile backend
+        working-directory: backend
+        run: uv run python -m compileall source
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Test frontend
+        working-directory: frontend
+        run: npm test
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Test production frontend in Chromium
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-${{ github.run_id }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
+  workers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - ai-trader-worker
+          - quant-data-worker
+          - quant-worker
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install worker dependencies
+        working-directory: ${{ matrix.package }}
+        run: uv sync --locked --extra dev
+      - name: Test worker
+        working-directory: ${{ matrix.package }}
+        run: uv run python -m unittest discover -s tests
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXUS_TEST_POSTGRES_URI: "postgresql://postgres:ci-${{ github.run_id }}@127.0.0.1:5432/nexus_ci"
+      NEXUS_TEST_POSTGRES_ADMIN_URI: "postgresql://postgres:ci-${{ github.run_id }}@127.0.0.1:5432/nexus_ci"
+      NEXUS_BACKEND_DB_USER: nexus_backend_ci
+      NEXUS_BACKEND_DB_PASSWORD: "ci-backend-${{ github.run_id }}" # pragma: allowlist secret
+      NEXUS_QUANT_DATA_DB_USER: nexus_quant_data_ci
+      NEXUS_QUANT_DATA_DB_PASSWORD: "ci-quant-data-${{ github.run_id }}" # pragma: allowlist secret
+      NEXUS_QUANT_WORKER_DB_USER: nexus_quant_worker_ci
+      NEXUS_QUANT_WORKER_DB_PASSWORD: "ci-quant-worker-${{ github.run_id }}" # pragma: allowlist secret
+      NEXUS_TEST_QUANT_DATA_POSTGRES_URI: "postgresql://nexus_quant_data_ci:ci-quant-data-${{ github.run_id }}@127.0.0.1:5432/nexus_ci" # pragma: allowlist secret
+      NEXUS_TEST_QUANT_WORKER_POSTGRES_URI: "postgresql://nexus_quant_worker_ci:ci-quant-worker-${{ github.run_id }}@127.0.0.1:5432/nexus_ci" # pragma: allowlist secret
+    services:
+      postgres:
+        image: postgres:16.14-alpine3.24@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-${{ github.run_id }} # pragma: allowlist secret
+          POSTGRES_DB: nexus_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install PostgreSQL integration dependencies
+        run: |
+          uv sync --project backend --locked --extra dev
+          uv sync --project quant-data-worker --locked --extra dev
+          uv sync --project quant-worker --locked --extra dev
+      - name: Run PostgreSQL durability suites
+        run: |
+          (cd backend && uv run python -m unittest tests.test_domain_postgres_integration)
+          POSTGRES_URI="$NEXUS_TEST_POSTGRES_ADMIN_URI" \
+            uv run --project backend python -m source.infrastructure.migrations bootstrap
+          (cd quant-data-worker && \
+            NEXUS_TEST_POSTGRES_URI="$NEXUS_TEST_QUANT_DATA_POSTGRES_URI" \
+            uv run python -m unittest tests.test_postgres_integration)
+          (cd quant-worker && \
+            NEXUS_TEST_POSTGRES_URI="$NEXUS_TEST_QUANT_WORKER_POSTGRES_URI" \
+            uv run python -m unittest tests.test_postgres_integration)
+
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.71.0
+          cache: true
+      - name: Build production backend image
+        run: |
+          mkdir -p /tmp/nexus-uv-cache
+          docker build --target production \
+            --build-context uv_cache=/tmp/nexus-uv-cache \
+            --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt \
+            -t nexus-backend-ci backend
+      - name: Build frontend image
+        run: >-
+          docker build
+          --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt
+          -f frontend/Dockerfile -t nexus-frontend-ci .
+      - name: Build AI-Trader worker image
+        run: >-
+          docker build
+          --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt
+          -t nexus-ai-trader-worker-ci ai-trader-worker
+      - name: Build quant-data worker image
+        run: >-
+          docker build
+          --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt
+          -t nexus-quant-data-worker-ci quant-data-worker
+      - name: Build quant worker image
+        run: >-
+          docker build
+          --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt
+          -t nexus-quant-worker-ci quant-worker
+      - name: Smoke application images and minimal runtime toolchains
+        env:
+          DEEPSEEK_API_KEY: ci-container-smoke # pragma: allowlist secret
+        run: |
+          for image in \
+            nexus-backend-ci \
+            nexus-ai-trader-worker-ci \
+            nexus-quant-data-worker-ci \
+            nexus-quant-worker-ci; do
+            docker run --rm --read-only --tmpfs /tmp --entrypoint sh "$image" -c '
+              for tool in pip pip3 uv uvx gcc g++ make git; do
+                if command -v "$tool" >/dev/null 2>&1; then
+                  echo "unexpected runtime build tool: $tool" >&2
+                  exit 1
+                fi
+              done
+            '
+          done
+          docker run --rm --read-only --tmpfs /tmp --env DEEPSEEK_API_KEY --entrypoint python nexus-backend-ci -c 'import source.http_app'
+          for image in \
+            nexus-ai-trader-worker-ci \
+            nexus-quant-data-worker-ci \
+            nexus-quant-worker-ci; do
+            docker run --rm --read-only --tmpfs /tmp --entrypoint python "$image" -c 'import worker.app'
+          done
+          docker run --rm --read-only --tmpfs /tmp --entrypoint sh nexus-frontend-ci -c '
+            for tool in node npm npx; do
+              if command -v "$tool" >/dev/null 2>&1; then
+                echo "unexpected frontend runtime build tool: $tool" >&2
+                exit 1
+              fi
+            done
+          '
+      - name: Verify production frontend security headers
+        run: |
+          container_id="$(docker run -d --read-only \
+            --env NGINX_BACKEND_UPSTREAM=http://127.0.0.1:19000 \
+            --tmpfs /tmp:size=64m,uid=101,gid=101,mode=1777 \
+            --tmpfs /etc/nginx/conf.d:size=16m,uid=101,gid=101,mode=0755 \
+            --tmpfs /var/cache/nginx:size=64m,uid=101,gid=101,mode=0755 \
+            -p 127.0.0.1:18080:8080 nexus-frontend-ci)"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error http://127.0.0.1:18080/ >/tmp/nexus-index.html; then
+              break
+            fi
+            sleep 1
+          done
+          test -s /tmp/nexus-index.html
+          curl --fail --silent --show-error --head http://127.0.0.1:18080/ >/tmp/nexus-root-headers.txt
+          grep -Eiq "^content-security-policy: .*default-src 'self'.*frame-ancestors 'none'.*base-uri 'none'" /tmp/nexus-root-headers.txt
+          grep -Eiq "^content-security-policy-report-only: .*require-trusted-types-for 'script'" /tmp/nexus-root-headers.txt
+          grep -Eiq '^x-content-type-options: nosniff' /tmp/nexus-root-headers.txt
+          grep -Eiq '^referrer-policy: no-referrer' /tmp/nexus-root-headers.txt
+          grep -Eiq '^x-frame-options: DENY' /tmp/nexus-root-headers.txt
+          grep -Eiq '^permissions-policy: .*camera=\(\).*microphone=\(\).*geolocation=\(\)' /tmp/nexus-root-headers.txt
+          grep -Eiq '^cross-origin-opener-policy: same-origin' /tmp/nexus-root-headers.txt
+          grep -Eiq '^cross-origin-resource-policy: same-origin' /tmp/nexus-root-headers.txt
+          grep -Eiq '^cache-control: no-cache' /tmp/nexus-root-headers.txt
+          asset_path="$(grep -Eo '/assets/[^" ]+\.js' /tmp/nexus-index.html | head -n 1)"
+          test -n "$asset_path"
+          curl --fail --silent --show-error --head "http://127.0.0.1:18080${asset_path}" >/tmp/nexus-asset-headers.txt
+          grep -Eiq '^cache-control: public, max-age=31536000, immutable' /tmp/nexus-asset-headers.txt
+      - name: Enforce high and critical vulnerability policy
+        run: |
+          for image in \
+            nexus-backend-ci \
+            nexus-frontend-ci \
+            nexus-ai-trader-worker-ci \
+            nexus-quant-data-worker-ci \
+            nexus-quant-worker-ci; do
+            trivy image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --ignorefile .trivyignore.yaml \
+              --exit-code 1 \
+              "$image"
+          done
+          trivy image \
+            --scanners vuln \
+            --pkg-types os \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --ignorefile .trivyignore.yaml \
+            --exit-code 1 \
+            postgres:16.14-alpine3.24@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+      - name: Generate CycloneDX image SBOMs
+        run: |
+          mkdir -p sbom
+          for spec in \
+            nexus-backend-ci:sbom/nexus-backend.cdx.json \
+            nexus-frontend-ci:sbom/nexus-frontend.cdx.json \
+            nexus-ai-trader-worker-ci:sbom/nexus-ai-trader-worker.cdx.json \
+            nexus-quant-data-worker-ci:sbom/nexus-quant-data-worker.cdx.json \
+            nexus-quant-worker-ci:sbom/nexus-quant-worker.cdx.json; do
+            image="${spec%%:*}"
+            output="${spec#*:}"
+            trivy image --scanners vuln --format cyclonedx --output "$output" "$image"
+          done
+          trivy image \
+            --scanners vuln \
+            --format cyclonedx \
+            --output sbom/postgres.cdx.json \
+            postgres:16.14-alpine3.24@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+      - name: Upload image SBOMs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-sboms-${{ github.run_id }}
+          path: sbom/*.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+  product-workflow-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEEPSEEK_API_KEY: offline-evaluation # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.11"
+          enable-cache: true
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install deterministic evaluation dependencies
+        run: |
+          uv sync --project backend --locked --extra dev
+          uv sync --project quant-data-worker --locked
+          uv sync --project quant-worker --locked
+          uv sync --project ai-trader-worker --locked --extra dev
+          npm ci --prefix frontend
+      - name: Run product workflow validation
+        run: >-
+          uv run --project backend python scripts/run-product-validation.py
+          --output data/evaluation/product-validation-v1.json
+      - name: Upload machine-readable validation report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: product-workflow-validation
+          path: data/evaluation/product-validation-v1.json
+          if-no-files-found: error
+
+  quality:
+    if: ${{ always() }}
+    needs: [backend, frontend, workers, postgres-integration, containers, product-workflow-validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every quality job to pass
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          WORKERS_RESULT: ${{ needs.workers.result }}
+          POSTGRES_INTEGRATION_RESULT: ${{ needs.postgres-integration.result }}
+          CONTAINERS_RESULT: ${{ needs.containers.result }}
+          EVALUATION_RESULT: ${{ needs.product-workflow-validation.result }}
+        run: |
+          test "$BACKEND_RESULT" = success
+          test "$FRONTEND_RESULT" = success
+          test "$WORKERS_RESULT" = success
+          test "$POSTGRES_INTEGRATION_RESULT" = success
+          test "$CONTAINERS_RESULT" = success
+          test "$EVALUATION_RESULT" = success

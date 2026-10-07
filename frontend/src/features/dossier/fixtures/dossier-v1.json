@@ -1,0 +1,42 @@
+{
+  "schema_version": "1",
+  "experiment": {
+    "experiment_id": "exp_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dataset_revision_id": "dsr_v1_0123456789abcdef01234567",
+    "specification_digest": "sha256:fixture",
+    "specification": {
+      "universe": "fixture_universe",
+      "frequency": "day",
+      "model": "lightgbm",
+      "feature_set": "alpha158",
+      "train": ["2020-01-01", "2021-12-31"],
+      "valid": ["2022-01-01", "2022-12-31"],
+      "test": ["2023-01-01", "2023-12-31"]
+    },
+    "status": "completed",
+    "stage": "completed",
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:01:00Z"
+  },
+  "dataset": null,
+  "metrics": [],
+  "artifacts": [],
+  "attempts": [],
+  "workflow": null,
+  "publications": [],
+  "interpretations": [],
+  "sources": [],
+  "limitations": {
+    "production_eligibility": "research_only"
+  },
+  "production_eligibility": "research_only",
+  "evidence_gaps": [
+    {
+      "code": "dataset_missing",
+      "message": "Dataset evidence is unavailable."
+    }
+  ],
+  "lineage": {
+    "root_node_id": "exp_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

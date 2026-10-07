@@ -1,0 +1,1 @@
+10035	IGNORE	(HSTS is enforced by the HTTPS-terminating ingress, not the internal HTTP container.)

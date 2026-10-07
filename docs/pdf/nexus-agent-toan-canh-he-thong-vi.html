@@ -1,0 +1,2281 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexus Agent — Toàn cảnh hệ thống</title>
+  <style>
+    :root {
+      --ink: #152238;
+      --muted: #5f6c7b;
+      --paper: #ffffff;
+      --wash: #f3f7fb;
+      --line: #d7e1eb;
+      --navy: #102a43;
+      --blue: #1976d2;
+      --cyan: #00a7b5;
+      --green: #159b72;
+      --amber: #e49122;
+      --red: #cf4b4b;
+      --purple: #7759c2;
+      --pink: #c84f88;
+      --mono: "DejaVu Sans Mono", "Liberation Mono", monospace;
+      --sans: "DejaVu Sans", "Liberation Sans", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { font-size: 10pt; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: var(--sans);
+      line-height: 1.5;
+      counter-reset: chapter;
+    }
+    @page {
+      size: A4;
+      margin: 16mm 15mm 17mm;
+    }
+    @page :first { margin: 0; }
+    a { color: var(--blue); text-decoration: none; }
+    p { margin: 0 0 3mm; }
+    ul, ol { margin: 1.5mm 0 3mm 5mm; padding-left: 5mm; }
+    li { margin: 1mm 0; }
+    h1, h2, h3, h4 { color: var(--navy); line-height: 1.18; break-after: avoid; }
+    h1 { font-size: 27pt; margin: 0 0 7mm; }
+    h2 {
+      font-size: 20pt;
+      margin: 0 0 6mm;
+      padding-bottom: 3mm;
+      border-bottom: 1.5px solid var(--line);
+    }
+    h3 { font-size: 14pt; margin: 7mm 0 3mm; }
+    h4 { font-size: 11pt; margin: 5mm 0 2mm; }
+    code {
+      font-family: var(--mono);
+      font-size: 8.5pt;
+      background: #edf3f8;
+      border-radius: 3px;
+      padding: .2mm 1mm;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      margin: 3mm 0 4mm;
+      padding: 4mm;
+      color: #d9ebff;
+      background: #102a43;
+      border-radius: 7px;
+      font-family: var(--mono);
+      font-size: 7.8pt;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      margin: 3mm 0 5mm;
+      border-collapse: collapse;
+      font-size: 8.4pt;
+      break-inside: auto;
+    }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    th, td {
+      padding: 2.2mm 2.4mm;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--navy); background: #e9f1f8; font-weight: 700; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    .cover {
+      width: 210mm;
+      height: 297mm;
+      padding: 25mm 22mm 18mm;
+      position: relative;
+      overflow: hidden;
+      color: white;
+      background:
+        radial-gradient(circle at 90% 8%, rgba(0,167,181,.46), transparent 29%),
+        radial-gradient(circle at 12% 88%, rgba(119,89,194,.42), transparent 34%),
+        linear-gradient(145deg, #091b2e 0%, #102f4d 54%, #123f55 100%);
+      break-after: page;
+    }
+    .cover::before, .cover::after {
+      content: "";
+      position: absolute;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 50%;
+    }
+    .cover::before { width: 150mm; height: 150mm; right: -66mm; top: 48mm; }
+    .cover::after { width: 105mm; height: 105mm; left: -50mm; bottom: 32mm; }
+    .cover-kicker {
+      display: inline-block;
+      padding: 2mm 4mm;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 99px;
+      color: #b9f5f3;
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .cover h1 {
+      width: 150mm;
+      margin-top: 35mm;
+      color: white;
+      font-size: 36pt;
+      line-height: 1.08;
+    }
+    .cover h1 span { display: block; color: #78e2df; }
+    .cover-lead {
+      width: 142mm;
+      color: #dbe9f4;
+      font-size: 14pt;
+      line-height: 1.55;
+    }
+    .cover-grid {
+      width: 153mm;
+      margin-top: 23mm;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+    }
+    .cover-grid div {
+      min-height: 27mm;
+      padding: 4mm;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 6px;
+      background: rgba(255,255,255,.07);
+    }
+    .cover-grid strong { display: block; color: #78e2df; font-size: 16pt; }
+    .cover-grid span { color: #dbe9f4; font-size: 8.5pt; }
+    .cover-meta {
+      position: absolute;
+      left: 22mm;
+      right: 22mm;
+      bottom: 18mm;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 4mm;
+      border-top: 1px solid rgba(255,255,255,.2);
+      color: #b8cad8;
+      font-size: 8.5pt;
+    }
+    .page { break-before: page; }
+    .chapter {
+      break-before: page;
+      counter-increment: chapter;
+    }
+    .chapter h2::before {
+      content: counter(chapter, decimal-leading-zero) "  ";
+      color: var(--cyan);
+      font-weight: 800;
+    }
+    .eyebrow {
+      display: block;
+      margin-bottom: 2mm;
+      color: var(--cyan);
+      font-size: 8.5pt;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .lead { color: #334e68; font-size: 12pt; line-height: 1.6; }
+    .small { color: var(--muted); font-size: 8pt; }
+    .muted { color: var(--muted); }
+    .toc {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2mm 8mm;
+      margin-top: 7mm;
+    }
+    .toc a {
+      display: flex;
+      gap: 2mm;
+      align-items: baseline;
+      padding: 2.2mm 0;
+      border-bottom: 1px dotted #bccbd8;
+      color: var(--ink);
+    }
+    .toc b { min-width: 7mm; color: var(--cyan); }
+    .toc span { font-size: 9pt; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4mm;
+      margin: 4mm 0 6mm;
+    }
+    .cards.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card {
+      padding: 4mm;
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--blue);
+      border-radius: 6px;
+      background: white;
+      break-inside: avoid;
+    }
+    .card.green { border-top-color: var(--green); }
+    .card.amber { border-top-color: var(--amber); }
+    .card.purple { border-top-color: var(--purple); }
+    .card.pink { border-top-color: var(--pink); }
+    .card h3, .card h4 { margin-top: 0; }
+    .metric { font-size: 22pt; font-weight: 800; color: var(--blue); }
+    .callout {
+      margin: 4mm 0 5mm;
+      padding: 3.5mm 4mm;
+      border-left: 4px solid var(--blue);
+      border-radius: 0 5px 5px 0;
+      background: #edf6ff;
+      break-inside: avoid;
+    }
+    .callout strong { color: var(--navy); }
+    .callout.warn { border-color: var(--amber); background: #fff7e9; }
+    .callout.danger { border-color: var(--red); background: #fff0f0; }
+    .callout.good { border-color: var(--green); background: #eaf9f3; }
+    .diagram {
+      margin: 5mm 0 6mm;
+      padding: 5mm;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #f8fbfe, #eef5fa);
+      break-inside: avoid;
+    }
+    .diagram-title {
+      margin-bottom: 4mm;
+      color: var(--navy);
+      font-size: 9pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .flow {
+      display: flex;
+      align-items: stretch;
+      gap: 2mm;
+    }
+    .flow.vertical { flex-direction: column; }
+    .box {
+      flex: 1;
+      min-width: 0;
+      padding: 3mm;
+      border: 1px solid #b8ccdc;
+      border-radius: 5px;
+      background: white;
+      text-align: center;
+    }
+    .box strong { display: block; color: var(--navy); font-size: 9pt; }
+    .box small { display: block; margin-top: 1mm; color: var(--muted); font-size: 7.3pt; }
+    .box.blue { border-color: #82b9eb; background: #edf6ff; }
+    .box.green { border-color: #72caae; background: #edfaf5; }
+    .box.amber { border-color: #efbd73; background: #fff8ed; }
+    .box.purple { border-color: #b5a1e2; background: #f5f1fc; }
+    .box.pink { border-color: #e0a0bf; background: #fff2f7; }
+    .arrow {
+      flex: 0 0 auto;
+      align-self: center;
+      color: var(--blue);
+      font-size: 15pt;
+      font-weight: 800;
+    }
+    .lane {
+      display: grid;
+      grid-template-columns: 30mm 1fr;
+      gap: 3mm;
+      align-items: stretch;
+      padding: 2mm 0;
+      border-bottom: 1px dashed #bdcbd7;
+    }
+    .lane:last-child { border-bottom: 0; }
+    .lane-name {
+      padding: 3mm;
+      border-radius: 4px;
+      color: white;
+      background: var(--navy);
+      font-size: 8pt;
+      font-weight: 700;
+    }
+    .lane-steps { display: flex; gap: 2mm; align-items: center; }
+    .lane-step {
+      flex: 1;
+      padding: 2.5mm;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: white;
+      font-size: 7.5pt;
+      text-align: center;
+    }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+    .checklist li::marker { color: var(--green); }
+    .numbered {
+      display: grid;
+      gap: 3mm;
+      margin: 4mm 0 6mm;
+    }
+    .numbered > div {
+      display: grid;
+      grid-template-columns: 10mm 1fr;
+      gap: 3mm;
+      break-inside: avoid;
+    }
+    .num {
+      width: 9mm;
+      height: 9mm;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--blue);
+      font-weight: 800;
+    }
+    .filetree {
+      padding: 4mm;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f7fafc;
+      font-family: var(--mono);
+      font-size: 8pt;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    .pill {
+      display: inline-block;
+      margin: .4mm;
+      padding: .7mm 2mm;
+      border-radius: 99px;
+      color: #24445c;
+      background: #e4edf4;
+      font-size: 7.5pt;
+      font-weight: 700;
+    }
+    .avoid { break-inside: avoid; }
+    .signature {
+      margin-top: 10mm;
+      padding-top: 4mm;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 8pt;
+    }
+    .footnote { color: var(--muted); font-size: 7.5pt; }
+    .footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: -11mm;
+      color: #7b8794;
+      font-size: 7pt;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <span class="cover-kicker">Tài liệu kiến trúc &amp; vận hành</span>
+    <h1>Nexus Agent <span>Toàn cảnh hệ thống</span></h1>
+    <p class="cover-lead">Từ một câu hỏi trên trình duyệt đến điều phối đa agent,
+      OpenBB/Qlib, phê duyệt của con người, bằng chứng, dữ liệu bền vững và các
+      ranh giới bảo mật — giải thích bằng tiếng Việt với ví dụ dễ theo dõi.</p>
+    <div class="cover-grid">
+      <div><strong>1+4</strong><span>Graph mặc định + standalone Studio opt-in</span></div>
+      <div><strong>4</strong><span>Subagent chuyên trách và tách quyền rõ ràng</span></div>
+      <div><strong>3</strong><span>Worker nội bộ cho dữ liệu, Qlib và AI-Trader</span></div>
+      <div><strong>1</strong><span>PostgreSQL làm nguồn sự thật của product state</span></div>
+      <div><strong>2</strong><span>Profile: local development và private beta một node</span></div>
+      <div><strong>∞</strong><span>Dòng bằng chứng nối request → dữ liệu → kết quả</span></div>
+    </div>
+    <div class="cover-meta">
+      <span>Phiên bản tài liệu 1.1 · 16/07/2026</span>
+      <span>Source baseline: <b>04aa3fe0302b</b></span>
+    </div>
+  </section>
+
+  <section class="page" id="loi-mo-dau">
+    <span class="eyebrow">Lời mở đầu</span>
+    <h1>Cách đọc tài liệu này</h1>
+    <p class="lead">Đây là bản đồ tổng thể của repository <b>Nexus Agent</b>, dành
+      cho cả người mới làm quen lẫn người cần truy vết sâu đến file source. Mỗi
+      chương đi theo ba lớp: hệ thống làm gì, vì sao thiết kế như vậy, và có thể
+      kiểm chứng ở đâu trong mã nguồn.</p>
+    <div class="cards">
+      <article class="card">
+        <h3>Nếu bạn mới bắt đầu</h3>
+        <p>Đọc chương 1 → 4, sau đó xem ba ví dụ ở chương 18. Bạn sẽ hiểu sản phẩm,
+          các thành phần chính và cách một yêu cầu chạy xuyên hệ thống.</p>
+      </article>
+      <article class="card green">
+        <h3>Nếu bạn là developer</h3>
+        <p>Đọc chương 5 → 17 và phụ lục. Các bảng chỉ rõ entrypoint, contract,
+          route, quyền, storage owner và lệnh kiểm tra.</p>
+      </article>
+      <article class="card amber">
+        <h3>Nếu bạn vận hành beta</h3>
+        <p>Tập trung vào chương 14 → 17: profile triển khai, bảo mật, quan sát,
+          migration, failure mode và quality gate.</p>
+      </article>
+      <article class="card purple">
+        <h3>Nếu bạn đánh giá kết quả quant</h3>
+        <p>Đọc chương 10 → 13 để hiểu identity, lineage, giới hạn point-in-time,
+          label lookahead, Evidence UI và ý nghĩa metric.</p>
+      </article>
+    </div>
+    <div class="callout warn">
+      <strong>Phạm vi phải nhớ:</strong> hệ thống hiện chứng minh cho phát triển
+      local và <em>một</em> private-beta node. Nó chưa tuyên bố hỗ trợ multi-node,
+      disaster recovery ngoài máy, object storage từ xa, signed release, formal
+      SLO hay capacity certification.
+    </div>
+    <h3>Quy ước trong tài liệu</h3>
+    <table>
+      <thead><tr><th>Ký hiệu</th><th>Ý nghĩa</th><th>Ví dụ</th></tr></thead>
+      <tbody>
+        <tr><td><code>đường/dẫn</code></td><td>File hoặc thư mục trong repository</td><td><code>backend/source/http_app.py</code></td></tr>
+        <tr><td><span class="pill">Public</span></td><td>Đi qua browser/backend, có auth theo profile</td><td><code>GET /v1/topology</code></td></tr>
+        <tr><td><span class="pill">Internal</span></td><td>Hợp đồng backend ↔ worker, không phải API cho browser</td><td><code>POST /v1/experiments</code> của quant-worker</td></tr>
+        <tr><td><b>Authority</b></td><td>Nơi có quyền quyết định trạng thái chính thức</td><td>PostgreSQL cho workflow và approval</td></tr>
+        <tr><td><b>Artifact bytes</b></td><td>File lớn nằm trên filesystem, được bảo vệ bằng manifest/hash</td><td>Output của Qlib dưới <code>data/artifacts</code></td></tr>
+      </tbody>
+    </table>
+    <p class="signature">Nguồn kiểm chứng chính: source code và executable
+      configuration tại commit <code>04aa3fe0302b</code>. Các file Markdown trong
+      <code>docs/</code> được dùng làm bản đồ điều hướng, không thay thế source.</p>
+  </section>
+
+  <section class="page" id="muc-luc">
+    <span class="eyebrow">Điều hướng</span>
+    <h1>Mục lục</h1>
+    <div class="toc">
+      <a href="#chuong-1"><b>01</b><span>Tóm tắt điều hành</span></a>
+      <a href="#chuong-2"><b>02</b><span>Bài toán, giá trị và phạm vi</span></a>
+      <a href="#chuong-3"><b>03</b><span>Bản đồ repository &amp; công nghệ</span></a>
+      <a href="#chuong-4"><b>04</b><span>Kiến trúc tổng thể</span></a>
+      <a href="#chuong-5"><b>05</b><span>Frontend và trải nghiệm người dùng</span></a>
+      <a href="#chuong-6"><b>06</b><span>Backend, LangGraph và streaming</span></a>
+      <a href="#chuong-7"><b>07</b><span>Agent harness và phân quyền nhiệm vụ</span></a>
+      <a href="#chuong-8"><b>08</b><span>Contract, event và tính đúng đắn</span></a>
+      <a href="#chuong-9"><b>09</b><span>PostgreSQL, filesystem và ownership</span></a>
+      <a href="#chuong-10"><b>10</b><span>Workflow OpenBB → Qlib dataset</span></a>
+      <a href="#chuong-11"><b>11</b><span>Workflow Qlib experiment</span></a>
+      <a href="#chuong-12"><b>12</b><span>AI-Trader integration</span></a>
+      <a href="#chuong-13"><b>13</b><span>Evidence, dossier và lineage</span></a>
+      <a href="#chuong-14"><b>14</b><span>Bảo mật, approval và user memory</span></a>
+      <a href="#chuong-15"><b>15</b><span>Khởi chạy và triển khai</span></a>
+      <a href="#chuong-16"><b>16</b><span>Quan sát, lỗi và phục hồi</span></a>
+      <a href="#chuong-17"><b>17</b><span>Kiểm thử và quality gate</span></a>
+      <a href="#chuong-18"><b>18</b><span>Ví dụ end-to-end dễ hiểu</span></a>
+      <a href="#chuong-19"><b>19</b><span>Hướng dẫn đọc và thay đổi source</span></a>
+      <a href="#chuong-20"><b>20</b><span>Giới hạn hiện tại và hướng mở rộng</span></a>
+      <a href="#phu-luc-a"><b>A</b><span>Danh mục API</span></a>
+      <a href="#phu-luc-b"><b>B</b><span>Cấu hình quan trọng</span></a>
+      <a href="#phu-luc-c"><b>C</b><span>Glossary</span></a>
+      <a href="#phu-luc-d"><b>D</b><span>Checklist vận hành</span></a>
+    </div>
+    <div class="callout good" style="margin-top:10mm">
+      <strong>Đường tắt 15 phút:</strong> đọc sơ đồ chương 4, bảng agent ở chương
+      7, hai state machine ở chương 10–11, rồi chạy qua ví dụ 18.1. Đây là “xương
+      sống” của toàn hệ thống.
+    </div>
+  </section>
+
+  <section class="chapter" id="chuong-1">
+    <span class="eyebrow">Bức tranh trong một trang</span>
+    <h2>Tóm tắt điều hành</h2>
+    <p class="lead">Nexus Agent là một hệ thống xác thực sản phẩm cho nghiên cứu có
+      nguồn dẫn, chuẩn bị dữ liệu tài chính OpenBB, thực nghiệm Qlib và chia sẻ
+      bằng chứng qua AI-Trader. Một supervisor dùng LangGraph/Deep Agents điều
+      phối bốn agent chuyên trách; React hiển thị chat, approval, execution graph
+      và Evidence UI.</p>
+    <div class="diagram">
+      <div class="diagram-title">Luồng chính ở mức 10.000 mét</div>
+      <div class="flow">
+        <div class="box blue"><strong>Người dùng</strong><small>Chat / Evidence / Settings</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>React + Nginx</strong><small>OIDC, SSE, replay, UI state</small></div>
+        <div class="arrow">→</div>
+        <div class="box purple"><strong>LangGraph backend</strong><small>Supervisor, API, auth, workflows</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>Workers</strong><small>OpenBB · Qlib · AI-Trader</small></div>
+      </div>
+      <div class="flow" style="margin-top:3mm">
+        <div class="box amber"><strong>PostgreSQL</strong><small>Checkpoint, workflow, approval, event, lineage, memory</small></div>
+        <div class="arrow">↔</div>
+        <div class="box"><strong>Actor-scoped files</strong><small>Staging, dataset revision, artifact</small></div>
+        <div class="arrow">↔</div>
+        <div class="box pink"><strong>SQLite cục bộ</strong><small>AI-Trader snapshots &amp; signal feed</small></div>
+      </div>
+    </div>
+    <h3>Năm ý quan trọng nhất</h3>
+    <div class="numbered">
+      <div><span class="num">1</span><div><b>Model không sở hữu quy trình nghiệp vụ.</b>
+        Agent chỉ gọi tool cấp cao. Trusted Python code kiểm tra input, identity,
+        trạng thái, idempotency, retry và postcondition.</div></div>
+      <div><span class="num">2</span><div><b>Dữ liệu và kết quả có danh tính bất biến.</b>
+        Staging revision, dataset revision, experiment và artifact được nối bằng
+        hash/manifest/lineage; alias chỉ là nhãn dễ đọc.</div></div>
+      <div><span class="num">3</span><div><b>Side effect nhạy cảm cần con người.</b>
+        Lưu/xóa memory và publish strategy/discussion gây LangGraph interrupt;
+        approval được ghi bền vững và ràng buộc với đúng action digest.</div></div>
+      <div><span class="num">4</span><div><b>Frontend dựng trạng thái từ protocol thật.</b>
+        SSE, product-event replay và <code>GET /v1/topology</code> điều khiển chat,
+        graph activity, approval và khả năng phục hồi sau reload.</div></div>
+      <div><span class="num">5</span><div><b>Đây là research evidence, không phải lời
+        khuyên đầu tư.</b> Dữ liệu yfinance thiếu bảo đảm point-in-time, membership
+        lịch sử, revision và corporate-action semantics đầy đủ.</div></div>
+    </div>
+    <div class="cards three">
+      <article class="card"><div class="metric">React</div><p>Console phía browser; state phiên làm việc không phải product authority.</p></article>
+      <article class="card green"><div class="metric">Python</div><p>Backend và ba worker FastAPI, chia theo contract HTTP.</p></article>
+      <article class="card purple"><div class="metric">Postgres 16</div><p>Authority cho state bền vững và actor isolation.</p></article>
+    </div>
+  </section>
+
+  <section class="chapter" id="chuong-2">
+    <span class="eyebrow">Sản phẩm đang giải quyết gì?</span>
+    <h2>Bài toán, giá trị và phạm vi</h2>
+    <h3>Bài toán cốt lõi</h3>
+    <p>Một quy trình nghiên cứu định lượng thực tế không chỉ là “hỏi LLM rồi nhận
+      câu trả lời”. Nó phải biết nguồn nào được dùng, dữ liệu nào đã được tải,
+      phiên bản dataset nào đi vào thử nghiệm, cấu hình nào tạo metric, ai đã phê
+      duyệt hành động công khai, và điều gì xảy ra nếu request bị gửi lại.</p>
+    <p>Nexus Agent biến chuỗi này thành các boundary rõ ràng:</p>
+    <div class="flow diagram">
+      <div class="box blue"><strong>Ý định</strong><small>Câu hỏi tự nhiên</small></div>
+      <div class="arrow">→</div>
+      <div class="box purple"><strong>Ủy quyền</strong><small>Đúng agent, đúng tool</small></div>
+      <div class="arrow">→</div>
+      <div class="box green"><strong>Thực thi</strong><small>Workflow xác định</small></div>
+      <div class="arrow">→</div>
+      <div class="box amber"><strong>Bằng chứng</strong><small>ID, hash, event, dossier</small></div>
+    </div>
+    <h3>Ba nhóm giá trị</h3>
+    <table>
+      <thead><tr><th>Nhóm</th><th>Giá trị</th><th>Cơ chế trong hệ thống</th></tr></thead>
+      <tbody>
+        <tr><td>Người nghiên cứu</td><td>Tra cứu có nguồn, chuẩn bị dữ liệu, chạy baseline/model comparison, đọc metric và limitation.</td><td>researcher, quant-data-agent, quant-researcher, Evidence UI.</td></tr>
+        <tr><td>Người kiểm soát</td><td>Biết hành động nào cần phê duyệt, kết quả dựa trên bằng chứng nào, retry có nhân đôi side effect không.</td><td>Native approval, action digest, idempotency, lineage, export dossier.</td></tr>
+        <tr><td>Developer/operator</td><td>Boundary dễ kiểm thử, worker tách rời, private-beta có auth và least privilege.</td><td>HTTP contracts, PostgreSQL roles, Compose overlay, CI gates.</td></tr>
+      </tbody>
+    </table>
+    <h3>Trong phạm vi và ngoài phạm vi</h3>
+    <div class="columns">
+      <div>
+        <div class="callout good"><strong>Được hỗ trợ</strong></div>
+        <ul class="checklist">
+          <li>Local development.</li>
+          <li>Một private-beta node.</li>
+          <li>OIDC, role/permission, actor isolation.</li>
+          <li>Daily OHLCV qua OpenBB + yfinance.</li>
+          <li>Qlib Alpha158 và bốn model allowlist.</li>
+          <li>AI-Trader snapshot/feed/publish có governance.</li>
+          <li>PostgreSQL durability, replay, Evidence UI.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="callout danger"><strong>Chưa được cam kết</strong></div>
+        <ul>
+          <li>Multi-replica coordination hay distributed admission.</li>
+          <li>Remote object storage và off-host restore.</li>
+          <li>Release signing/provenance hoàn chỉnh.</li>
+          <li>Capacity/soak certification, formal SLO/alerting.</li>
+          <li>Độ đúng tuyệt đối của provider hoặc lợi nhuận tương lai.</li>
+          <li>Realtime trade execution.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout warn"><strong>Ví dụ đơn giản:</strong> nếu kết quả backtest
+      ghi “return 12%”, hệ thống lưu được cấu hình, metric và artifact làm bằng
+      chứng. Nhưng nó không biến 12% lịch sử thành lời hứa lợi nhuận 12% tương lai.</div>
+  </section>
+
+  <section class="chapter" id="chuong-3">
+    <span class="eyebrow">Tìm thứ gì ở đâu</span>
+    <h2>Bản đồ repository và công nghệ</h2>
+    <div class="filetree">nexus-agent/
+├── backend/              # LangGraph, agent harness, auth, product API, PostgreSQL
+│   ├── source/
+│   │   ├── agents/       # graph composition, middleware, subagent definitions
+│   │   ├── application/  # composite workflows và governed publication
+│   │   ├── contracts/    # Pydantic boundary models
+│   │   ├── domain/       # framework-independent state/policy
+│   │   ├── infrastructure/# PostgreSQL repositories, migration, checkpointer
+│   │   ├── integrations/ # HTTP clients đến workers
+│   │   ├── security/     # OIDC, actor key, role → permission
+│   │   └── tools/        # model-visible high-level tools
+│   ├── .deepagents/      # prompt, skill, nexus.json metadata
+│   └── migrations/       # schema nexus_domain và database roles
+├── frontend/             # React/Vite console, SSE, approvals, graph, Evidence UI
+├── quant-data-worker/    # OpenBB ingest, staging, immutable Qlib dataset build
+├── quant-worker/         # Qlib job coordinator, result và artifact verification
+├── ai-trader-worker/     # cached market intel, signal feed, publication adapter
+├── docs/                 # kiến trúc, guide, workflow, reference và PDF này
+├── evaluation/           # product-validation manifest
+├── scripts/              # architecture/product/security gates
+├── data/                 # runtime data local (không phải source authority)
+├── docker-compose.yml
+├── docker-compose.beta.yml
+└── run.sh</div>
+    <h3>Technology stack</h3>
+    <table>
+      <thead><tr><th>Lớp</th><th>Công nghệ</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td>Agent runtime</td><td>Python 3.11, LangGraph, Deep Agents, LangChain model adapter</td><td>Graph, delegation, streaming, interrupt/checkpoint.</td></tr>
+        <tr><td>Backend API</td><td>FastAPI, httpx, Pydantic</td><td>Product routes, worker client, strict boundary validation.</td></tr>
+        <tr><td>Persistence</td><td>PostgreSQL 16, psycopg pool, LangGraph Postgres checkpointer</td><td>Checkpoint + <code>nexus_domain</code> product authority.</td></tr>
+        <tr><td>Frontend</td><td>React 18, Vite 6, oidc-client-ts, Lucide</td><td>Chat/SSE, approval, runtime graph, Settings, Evidence.</td></tr>
+        <tr><td>Market data</td><td>OpenBB 4, yfinance adapter, pandas/numpy</td><td>Tải, chuẩn hóa, validate OHLCV/factor.</td></tr>
+        <tr><td>Quant</td><td>Qlib 0.9.7, LightGBM/linear/XGBoost/CatBoost</td><td>Alpha158 experiment và TopkDropoutStrategy.</td></tr>
+        <tr><td>AI-Trader adapter</td><td>FastAPI, SQLite, Alpha Vantage NEWS_SENTIMENT</td><td>Snapshot cache và Nexus signal feed.</td></tr>
+        <tr><td>Packaging/ops</td><td>uv, npm, Docker Compose, Nginx</td><td>Dependency lock, build, private networking, reverse proxy.</td></tr>
+        <tr><td>Verification</td><td>unittest, Node test, Playwright, Trivy, security script</td><td>Unit, integration, browser, image và vulnerability gates.</td></tr>
+      </tbody>
+    </table>
+    <h3>Quy tắc ownership quan trọng</h3>
+    <div class="cards">
+      <article class="card"><h4>Backend không import worker</h4><p>Backend gọi worker qua các client dưới <code>backend/source/integrations/</code>. Worker là ranh giới HTTP độc lập.</p></article>
+      <article class="card green"><h4>Model không gọi API thô</h4><p>Agent thấy tool cấp cao; application service kiểm soát các bước fetch/build/validate/submit.</p></article>
+      <article class="card amber"><h4>Browser không sở hữu topology</h4><p>Frontend tải cấu trúc agent/skill từ <code>GET /v1/topology</code> và fail closed khi không có.</p></article>
+      <article class="card purple"><h4>Source thắng docs</h4><p>Cấu hình executable, schema và implementation là bằng chứng cuối cùng khi có sai khác.</p></article>
+    </div>
+  </section>
+
+  <section class="chapter" id="chuong-4">
+    <span class="eyebrow">Các khối và mối quan hệ</span>
+    <h2>Kiến trúc tổng thể</h2>
+    <div class="diagram">
+      <div class="diagram-title">Component architecture</div>
+      <div class="lane">
+        <div class="lane-name">Browser</div>
+        <div class="lane-steps">
+          <div class="lane-step">OIDC session</div><div class="arrow">→</div>
+          <div class="lane-step">React Console</div><div class="arrow">→</div>
+          <div class="lane-step">HTTP/SSE + replay</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-name">Ingress</div>
+        <div class="lane-steps">
+          <div class="lane-step">Nginx static SPA</div><div class="arrow">→</div>
+          <div class="lane-step">/api reverse proxy</div><div class="arrow">→</div>
+          <div class="lane-step">rate / connection limit</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-name">Backend</div>
+        <div class="lane-steps">
+          <div class="lane-step">OIDC auth</div><div class="arrow">→</div>
+          <div class="lane-step">LangGraph supervisor</div><div class="arrow">↔</div>
+          <div class="lane-step">Product API &amp; workflows</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-name">Agents</div>
+        <div class="lane-steps">
+          <div class="lane-step">Researcher</div>
+          <div class="lane-step">Quant Data</div>
+          <div class="lane-step">Quant Researcher</div>
+          <div class="lane-step">AI-Trader</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-name">Workers</div>
+        <div class="lane-steps">
+          <div class="lane-step">OpenBB / dataset</div>
+          <div class="lane-step">Qlib / artifacts</div>
+          <div class="lane-step">Market cache / publish</div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="lane-name">State</div>
+        <div class="lane-steps">
+          <div class="lane-step">PostgreSQL</div>
+          <div class="lane-step">worker-owned artifact files</div>
+          <div class="lane-step">Nexus SQLite</div>
+        </div>
+      </div>
+    </div>
+    <h3>Runtime component và dữ liệu bền vững</h3>
+    <table>
+      <thead><tr><th>Component</th><th>Trách nhiệm</th><th>Dữ liệu bền vững</th></tr></thead>
+      <tbody>
+        <tr><td><code>backend/</code></td><td>Auth, graph, workflow, product API, approval, memory, events.</td><td>Postgres checkpoint và <code>nexus_domain</code>.</td></tr>
+        <tr><td><code>frontend/</code></td><td>OIDC client, chat/SSE, graph, Settings, Evidence UI.</td><td>Chỉ UI state theo browser session/local storage.</td></tr>
+        <tr><td><code>quant-data-worker/</code></td><td>OpenBB fetch, staging validation, Qlib dataset build/manifest.</td><td>Actor-scoped files + Postgres revision/control ở beta.</td></tr>
+        <tr><td><code>quant-worker/</code></td><td>Allowlisted Qlib job, cancel/recovery, result, artifact.</td><td>Postgres job state + actor-scoped artifacts.</td></tr>
+        <tr><td><code>ai-trader-worker/</code></td><td>Cached market intel, signal feed và publication endpoint.</td><td>Nexus-owned SQLite tables trên node.</td></tr>
+      </tbody>
+    </table>
+    <h3>Hai control plane song song</h3>
+    <div class="cards">
+      <article class="card purple">
+        <h4>LangGraph control plane</h4>
+        <p>Thread, run, message stream, checkpoint, graph interrupt/resume. Nó điều
+          khiển vòng đời hội thoại và model execution.</p>
+      </article>
+      <article class="card green">
+        <h4>Product/domain control plane</h4>
+        <p>Workflow, idempotency, approval, product event, dataset/experiment
+          lineage, memory và publication. Nó làm bằng chứng nghiệp vụ.</p>
+      </article>
+    </div>
+    <div class="callout"><strong>Vì sao cần cả hai?</strong> Một run LangGraph có
+      thể bị ngắt/reconnect, trong khi dataset build hoặc publication phải giữ
+      identity ổn định và không lặp side effect. Product control plane tách trạng
+      thái nghiệp vụ khỏi vòng đời transport/model.</div>
+    <h3>Luồng đồng bộ và bất đồng bộ</h3>
+    <ul>
+      <li>Chat phản hồi qua HTTP streaming/SSE; browser parse nhiều stream mode.</li>
+      <li>Qlib experiment được worker nhận với HTTP 202 rồi xử lý như durable job.</li>
+      <li>Product events đi qua transactional outbox rồi được projector đưa vào replay stream.</li>
+      <li>AI-Trader market refresh chạy nền, còn agent đọc snapshot từ SQLite nên không chờ provider.</li>
+    </ul>
+  </section>
+
+  <section class="chapter" id="chuong-5">
+    <span class="eyebrow">Từ góc nhìn browser</span>
+    <h2>Frontend và trải nghiệm người dùng</h2>
+    <p class="lead">Frontend là React SPA phục vụ bốn không gian: Trò chuyện,
+      Evidence, Agents và Cài đặt. Nó trình bày trạng thái runtime nhưng không
+      được coi là nguồn sự thật của workflow, approval hay evidence.</p>
+    <h3>Bốn trang chính</h3>
+    <table>
+      <thead><tr><th>Trang</th><th>Người dùng thấy gì</th><th>Nguồn dữ liệu</th></tr></thead>
+      <tbody>
+        <tr><td>Trò chuyện</td><td>Prompt, token stream, tiến trình, execution graph, approval card.</td><td>LangGraph HTTP/SSE, event projection và React reducer.</td></tr>
+        <tr><td>Evidence</td><td>Dossier, so sánh experiment, lineage, artifact download, export.</td><td>Các product route <code>/v1/experiments</code>, <code>/v1/lineage</code>, <code>/v1/artifacts</code>.</td></tr>
+        <tr><td>Agents</td><td>Danh sách agent, skill và tài nguyên/tool được cấu hình.</td><td>Topology đã xác thực từ backend.</td></tr>
+        <tr><td>Cài đặt</td><td>Backend health, memory, số agent/skill và thao tác xóa memory.</td><td><code>/ok</code>, <code>/v1/memory</code>, topology.</td></tr>
+      </tbody>
+    </table>
+    <h3>Vòng đời một lượt chat</h3>
+    <div class="diagram">
+      <div class="diagram-title">useChat orchestration</div>
+      <div class="flow">
+        <div class="box blue"><strong>Submit prompt</strong><small>trim + chặn run trùng</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>Create thread</strong><small>nếu session chưa có</small></div>
+        <div class="arrow">→</div>
+        <div class="box purple"><strong>Run stream</strong><small>token, activity, interrupt</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>Reducer</strong><small>message, progress, graph</small></div>
+      </div>
+      <div class="flow" style="margin-top:3mm">
+        <div class="box amber"><strong>Interrupted?</strong><small>hiển thị approve / reject</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>Resume stream</strong><small>gửi quyết định chính xác</small></div>
+        <div class="arrow">→</div>
+        <div class="box blue"><strong>Replay events</strong><small>bù dữ liệu product event</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>Complete</strong><small>dọn active run an toàn</small></div>
+      </div>
+    </div>
+    <h4>Những guard quan trọng trong <code>frontend/src/hooks/useChat.ts</code></h4>
+    <ul>
+      <li><b>In-flight guard:</b> không submit thêm khi lượt hiện tại đang chạy.</li>
+      <li><b>Run sequence guard:</b> callback cũ chỉ được cập nhật state nếu ID nội bộ vẫn là run hiện tại.</li>
+      <li><b>AbortController:</b> stop của người dùng hủy transport và gửi cancel đến backend khi có run ID.</li>
+      <li><b>Interrupted run:</b> giữ state cần thiết để resume approval, không giả vờ run đã hoàn tất.</li>
+      <li><b>Reconnect/replay:</b> active run và last event ID được giữ trong browser session để nối lại.</li>
+    </ul>
+    <h3>Storage phía browser</h3>
+    <table>
+      <thead><tr><th>Nơi lưu</th><th>Dữ liệu</th><th>Ý nghĩa</th></tr></thead>
+      <tbody>
+        <tr><td><code>sessionStorage</code></td><td>OIDC user, thread ID, active run, last event/sequence.</td><td>Tồn tại trong phiên tab; giúp resume/replay nhưng không là product authority.</td></tr>
+        <tr><td><code>localStorage</code></td><td>Vị trí node graph, agent đang mở rộng.</td><td>Chỉ là preference trình bày.</td></tr>
+        <tr><td>React state</td><td>Messages, progress, pending approval, selected node, page.</td><td>Disposable UI projection.</td></tr>
+      </tbody>
+    </table>
+    <h3>Runtime topology: backend quyết định, frontend hiển thị</h3>
+    <p><code>App.jsx</code> khởi tạo bằng <code>FAIL_CLOSED_NEXUS_CONFIG</code>:
+      chỉ supervisor bật, không tự giả lập subagent/skill. Sau khi
+      <code>fetchProductTopology()</code> thành công, <code>graphBuilder.js</code>
+      chuẩn hóa cấu hình, tạo node/edge và chỉ mở chi tiết tool/skill khi người dùng
+      yêu cầu hoặc live activity đi qua agent đó.</p>
+    <div class="callout danger"><strong>Fail closed:</strong> nếu topology endpoint
+      không hoạt động, browser không dùng một bản topology hardcode có vẻ “đúng”.
+      Điều này tránh UI nói rằng một agent/tool tồn tại trong khi backend đã tắt nó.</div>
+    <h3>OIDC và reverse proxy</h3>
+    <p><code>frontend/src/auth/oidc.ts</code> dùng Authorization Code flow, silent
+      renew và session storage. Cấu hình được inject lúc runtime. Trong profile
+      không bật OIDC, client không tạo OIDC manager; backend development có local
+      actor riêng.</p>
+    <p>Nginx phục vụ static SPA và proxy <code>/api/</code> đến backend với
+      buffering tắt để streaming hoạt động. Nó áp dụng body limit, rate/connection
+      limit, CSP, <code>nosniff</code>, no-referrer, frame deny và Permissions Policy;
+      các surface không dùng như MCP, A2A, docs, metrics bị trả 404.</p>
+    <h3>Evidence UI</h3>
+    <p><code>DossierPage.jsx</code> không chỉ hiện một con số. Nó nhóm evidence
+      thành request/workflow, dataset revision, experiment specification, attempts,
+      metric definitions, sources/interpretation, artifacts, approvals/publications
+      và lineage explorer. Link nguồn chỉ được render nếu URL an toàn; artifact chỉ
+      có nút download khi trạng thái <code>ready</code> và
+      <code>download_eligible=true</code>.</p>
+    <div class="callout good"><strong>Ví dụ:</strong> thay vì chỉ thấy “IC = 0.04”,
+      người dùng có thể xem metric ID, calculation version, dataset revision,
+      manifest hash, model/segment, runtime attempt và các evidence gap liên quan.</div>
+    <h3>File nên đọc</h3>
+    <table>
+      <thead><tr><th>File</th><th>Nội dung</th></tr></thead>
+      <tbody>
+        <tr><td><code>frontend/src/App.tsx</code></td><td>Shell, navigation, topology load, graph projection.</td></tr>
+        <tr><td><code>frontend/src/hooks/useChat.ts</code></td><td>Chat lifecycle, approval resume, abort và stale-run guard.</td></tr>
+        <tr><td><code>frontend/src/api/chat*.ts</code></td><td>HTTP/SSE protocol, stream parsing, thread/run resources.</td></tr>
+        <tr><td><code>frontend/src/data/graphBuilder.ts</code></td><td>Fail-closed topology → node/edge.</td></tr>
+        <tr><td><code>frontend/src/features/dossier/DossierPage.tsx</code></td><td>Evidence, compare, export, lineage, artifact UI.</td></tr>
+        <tr><td><code>frontend/nginx.conf</code></td><td>Production ingress headers và proxy policy.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="chapter" id="chuong-6">
+    <span class="eyebrow">Composition root và runtime protocol</span>
+    <h2>Backend, LangGraph và streaming</h2>
+    <h3>Graph mặc định và graph Studio opt-in</h3>
+    <p><code>backend/langgraph.json</code> chỉ đăng ký supervisor, giống production,
+      để standalone subagent không trở thành public run surface ngoài ý muốn. Khi
+      cần trace cục bộ, operator có <code>studio:access</code> phải khởi động rõ ràng
+      bằng <code>backend/langgraph.studio.json</code>; file này mới đăng ký đủ năm graph.</p>
+    <table>
+      <thead><tr><th>Graph</th><th>Entrypoint</th><th>Mục đích</th></tr></thead>
+      <tbody>
+        <tr><td><code>supervisor</code></td><td><code>source/agents/agent.py:graph</code></td><td>Luồng sản phẩm chính và delegation.</td></tr>
+        <tr><td><code>researcher</code></td><td><code>:researcher_graph</code></td><td>Trace nghiên cứu nguồn ngoài độc lập.</td></tr>
+        <tr><td><code>quant-data-agent</code></td><td><code>:quant_data_agent_graph</code></td><td>Trace ingest/build dataset.</td></tr>
+        <tr><td><code>quant-researcher</code></td><td><code>:quant_researcher_graph</code></td><td>Trace Qlib experiment.</td></tr>
+        <tr><td><code>ai-trader-agent</code></td><td><code>:ai_trader_agent_graph</code></td><td>Trace AI-Trader read/publish.</td></tr>
+      </tbody>
+    </table>
+    <h3>Composition root: <code>source/bootstrap.py</code></h3>
+    <div class="numbered">
+      <div><span class="num">1</span><div><b>Đăng ký harness profile.</b> Registry
+        agent/skill/tool được validate trước khi runtime tiếp tục.</div></div>
+      <div><span class="num">2</span><div><b>Tạo model và năm graph.</b> Supervisor
+        nhận danh sách subagent; standalone graph nhận đúng tool và middleware riêng.</div></div>
+      <div><span class="num">3</span><div><b>Mở PostgreSQL pool.</b> Runtime chờ pool
+        sẵn sàng và verify migration version/checksum, không tự mutate schema khi startup.</div></div>
+      <div><span class="num">4</span><div><b>Khởi tạo checkpointer một lần.</b> Cùng
+        checkpointer được gắn cho tất cả graph instance.</div></div>
+      <div><span class="num">5</span><div><b>Bọc graph context.</b> Run start/complete/fail
+        được ghi thành product event khi có actor/run identity hợp lệ.</div></div>
+    </div>
+    <h3>HTTP surface gồm hai lớp</h3>
+    <div class="cards">
+      <article class="card purple">
+        <h4>LangGraph platform routes</h4>
+        <p>Thread, run, state, stream, cancel và resume. Frontend dùng các route
+          này để vận hành hội thoại và nhận SSE.</p>
+      </article>
+      <article class="card green">
+        <h4>Nexus product routes</h4>
+        <p>Topology, replay events, memory, readiness, lineage, dossier, compare,
+          export và artifact download trong <code>source/http_app.py</code>.</p>
+      </article>
+    </div>
+    <p>Custom FastAPI app được mount với <b>auth first</b>. OpenAPI/docs bị tắt;
+      MCP, A2A và webhooks cũng bị vô hiệu vì không thuộc product surface hiện tại.</p>
+    <h3>Từ token đến quyền</h3>
+    <div class="flow diagram">
+      <div class="box blue"><strong>Bearer token</strong><small>hoặc local development actor</small></div>
+      <div class="arrow">→</div>
+      <div class="box"><strong>OIDC verify</strong><small>issuer, audience, signature, exp, iat, sub</small></div>
+      <div class="arrow">→</div>
+      <div class="box purple"><strong>Roles</strong><small>claim cấu hình được</small></div>
+      <div class="arrow">→</div>
+      <div class="box green"><strong>Permissions</strong><small>route/tool check</small></div>
+      <div class="arrow">→</div>
+      <div class="box amber"><strong>Actor key</strong><small>HMAC pseudonymous owner</small></div>
+    </div>
+    <p>OIDC subject không được dùng trực tiếp làm owner key. Backend tạo
+      <code>v1-&lt;64 hex&gt;</code> từ issuer + subject bằng tenant HMAC key. Mọi
+      thread/domain record sau đó được scope theo actor key.</p>
+    <h3>Input và state boundary</h3>
+    <table>
+      <thead><tr><th>Boundary</th><th>Giới hạn mặc định</th><th>Lý do</th></tr></thead>
+      <tbody>
+        <tr><td>Run payload</td><td>64 KiB</td><td>Chặn request quá lớn trước graph.</td></tr>
+        <tr><td>Một user prompt</td><td>16 KiB</td><td>Giới hạn model input và abuse surface.</td></tr>
+        <tr><td>Checkpoint TTL</td><td>43.200 giây (12 giờ)</td><td>Dọn state hội thoại có giới hạn.</td></tr>
+        <tr><td>Replay retention</td><td>86.400 giây (24 giờ)</td><td>Cho phép reconnect gần thời điểm chạy.</td></tr>
+        <tr><td>Approval TTL</td><td>900 giây (15 phút)</td><td>Không để quyết định pending vô thời hạn.</td></tr>
+        <tr><td>Artifact download</td><td>256 MiB</td><td>Giới hạn proxy/download memory.</td></tr>
+      </tbody>
+    </table>
+    <h3>Streaming và replay phối hợp ra sao?</h3>
+    <p>SSE cho cảm giác realtime: token, tool activity và interrupt đi đến browser
+      trong lúc run chạy. Product-event replay giải quyết một bài toán khác: nếu
+      browser rớt mạng hoặc missed event, nó hỏi
+      <code>GET /v1/runs/{run_id}/events?after=N</code> để lấy envelope có sequence
+      lớn hơn N. Trường <code>gap</code> báo khi phần lịch sử cần thiết đã vượt retention.</p>
+    <div class="callout"><strong>Ví dụ:</strong> token cuối cùng có thể đã hiện trên
+      UI trước khi sự kiện <code>dataset.ready</code> được projector đưa vào replay.
+      Sau khi run hoàn tất, frontend replay để bổ sung product state mà không đoán
+      từ prose của model.</div>
+    <h3>Strict checkpoint serialization</h3>
+    <p>Cấu hình checkpointer không allowlist JSON module tùy ý và tắt pickle
+      fallback. Production bật strict msgpack và mã hóa content fields bằng AES key
+      có độ dài 16/24/32 byte. Mục tiêu là giảm nguy cơ deserialize object tùy ý
+      và bảo vệ nội dung checkpoint.</p>
+  </section>
+
+  <section class="chapter" id="chuong-7">
+    <span class="eyebrow">Ai được làm gì?</span>
+    <h2>Agent harness và phân quyền nhiệm vụ</h2>
+    <p class="lead">Supervisor không phải “siêu agent làm mọi thứ”. Nó chọn đúng
+      chuyên gia, nhận structured handoff và dừng đường đi nếu contract thất bại.
+      Mỗi subagent có prompt, skill, tool, permission và budget riêng.</p>
+    <h3>Topology hiện tại</h3>
+    <table>
+      <thead><tr><th>Agent</th><th>Trách nhiệm</th><th>Tool model nhìn thấy</th></tr></thead>
+      <tbody>
+        <tr><td><b>supervisor</b></td><td>Điều phối; lưu/xóa memory khi có yêu cầu rõ ràng.</td><td><code>save_user_memory</code>, <code>delete_user_memory</code>, <code>task</code>, <code>write_todos</code>.</td></tr>
+        <tr><td><b>researcher</b></td><td>Nghiên cứu nguồn ngoài hiện hành, source-backed.</td><td><code>web_search</code>, <code>write_todos</code>.</td></tr>
+        <tr><td><b>quant-data-agent</b></td><td>Chuẩn bị dataset và factor context.</td><td><code>prepare_qlib_dataset</code>, <code>fetch_factor_snapshot</code>, <code>write_todos</code>.</td></tr>
+        <tr><td><b>quant-researcher</b></td><td>Liệt kê dataset, chạy/đọc Qlib experiment, ghi interpretation.</td><td>Bốn quant tool chuyên trách và <code>write_todos</code>.</td></tr>
+        <tr><td><b>ai-trader-agent</b></td><td>Đọc market cache/feed; publish có approval; heartbeat.</td><td>Sáu AI-Trader tool và <code>write_todos</code>.</td></tr>
+      </tbody>
+    </table>
+    <h3>Prompt + skill + executable policy</h3>
+    <div class="diagram">
+      <div class="flow">
+        <div class="box blue"><strong>AGENTS.md</strong><small>Vai trò, scope, output rules</small></div>
+        <div class="arrow">+</div>
+        <div class="box purple"><strong>SKILL.md</strong><small>Workflow chuyên môn</small></div>
+        <div class="arrow">+</div>
+        <div class="box"><strong>nexus.json</strong><small>Enable, tool, UI metadata</small></div>
+        <div class="arrow">+</div>
+        <div class="box green"><strong>Python</strong><small>Permission, approval, budget, contract</small></div>
+      </div>
+    </div>
+    <p>Ba file văn bản hướng dẫn model không phải security boundary duy nhất.
+      Executable Python mới sở hữu danh sách tool thật, permission check, approval,
+      structured response schema, limit và side-effect workflow. Startup
+      cross-check registry với prompt/skill/module để phát hiện drift.</p>
+    <p>Skill được đọc từ đúng registry assignment trong lúc dựng graph, kiểm tra
+      containment/frontmatter/kích thước rồi inject đầy đủ như trusted system
+      instruction. Model không có tool để tự <code>ls</code>, <code>read_file</code>,
+      <code>grep</code>, <code>glob</code>, execute hay sửa filesystem.</p>
+    <h3>Ranh giới từng agent</h3>
+    <div class="cards">
+      <article class="card pink"><h4>Researcher</h4><p><b>Được:</b> docs, paper,
+        current context, citation. <b>Không:</b> ingest, Qlib run, file, lời khuyên
+        đầu tư. Tối đa bốn search tập trung theo skill.</p></article>
+      <article class="card blue"><h4>Quant Data</h4><p><b>Được:</b> daily OHLCV,
+        validation, build dataset, current factor snapshot. <b>Không:</b> train,
+        strategy selection, dùng current factor làm historical feature.</p></article>
+      <article class="card green"><h4>Quant Researcher</h4><p><b>Được:</b>
+        allowlisted experiment và diễn giải limitation. <b>Không:</b> raw Qlib,
+        fetch/build dataset, model/strategy ngoài allowlist.</p></article>
+      <article class="card amber"><h4>AI-Trader</h4><p><b>Được:</b> cached intel,
+        signal feed, governed publication. <b>Không:</b> realtime trade operation
+        hay coi empty snapshot là connector failure.</p></article>
+    </div>
+    <h3>Nguyên tắc “một composite tool”</h3>
+    <p>Quant Data không thấy bốn tool fetch → validate → build → validate riêng.
+      Nó chỉ gọi <code>prepare_qlib_dataset</code> một lần. Quant Researcher cũng
+      gọi <code>run_governed_qlib_experiment</code> thay vì tự validate rồi submit
+      tùy ý. Cách này giữ thứ tự, idempotency và resume trong trusted code.</p>
+    <div class="callout warn"><strong>Tại sao?</strong> Nếu model có bốn tool side
+      effect thấp tầng, một lần “sửa câu trả lời” có thể fetch/build lặp lại hoặc
+      bỏ qua validation. Composite workflow chỉ cho model diễn đạt ý định; code
+      quyết định chuỗi hành động.</div>
+    <h3>Structured handoff 1.0</h3>
+    <p>Bốn loại kết quả là <code>ResearchHandoff</code>,
+      <code>QuantDataHandoff</code>, <code>QuantExperimentHandoff</code> và
+      <code>AiTraderHandoff</code>. Tất cả có:</p>
+    <ul>
+      <li><code>schema_version</code>, <code>ok</code>, <code>agent</code>, <code>task</code>, <code>summary</code>;</li>
+      <li>typed <code>references</code>, <code>metrics</code>, <code>warnings</code>, <code>errors</code>;</li>
+      <li>outputs chuyên biệt và một <code>next_action</code> mang tính gợi ý.</li>
+    </ul>
+    <p>Schema dùng strict mode và cấm field thừa. Nếu output sai, runtime cho phép
+      một lần sửa format <b>không gọi tool</b>; nếu vẫn sai thì fail closed. Nó
+      không lặp dataset build, experiment, publication, memory hay side effect để
+      “sửa” JSON. Supervisor coi prose, claim, web extract và <code>next_action</code>
+      là dữ liệu không tin cậy; chỉ typed identifier từ trusted product tool được
+      dùng làm reference, và routing action do quant handoff đề xuất bị sanitize.</p>
+    <h3>Budget và filesystem</h3>
+    <p>Supervisor tối đa 4 delegation và 12 model call cho một run; cùng subagent
+      chỉ được gọi một lần trong mỗi user intent. Researcher tối đa 4 search/6 model
+      call; Quant Data 2 tool/5 model call; Quant Researcher 6 tool/8 model call với
+      experiment và interpretation tối đa một lần mỗi loại; AI-Trader 6 tool/8 model
+      call với mỗi publish tool tối đa một lần. Mọi graph dùng state backend;
+      filesystem tool bị loại khỏi model request và bị chặn lại ở execution boundary.</p>
+    <h3>Vai trò của <code>nexus.json</code></h3>
+    <p>File này là registry chung cho enablement, tool/skill assignment và metadata
+      UI. Backend dùng nó để wiring/validation; frontend nhận phiên bản đã lọc an
+      toàn qua topology API. Secret, prompt đầy đủ và executable permission không
+      được gửi xuống browser.</p>
+  </section>
+
+  <section class="chapter" id="chuong-8">
+    <span class="eyebrow">Các biên giới tin cậy</span>
+    <h2>Contract, event và tính đúng đắn</h2>
+    <h3>Ba loại contract</h3>
+    <table>
+      <thead><tr><th>Loại</th><th>Ví dụ</th><th>Điều nó bảo vệ</th></tr></thead>
+      <tbody>
+        <tr><td>Intent contract</td><td><code>PrepareQlibDatasetIntent</code>, <code>RunQlibExperimentIntent</code></td><td>Input normalized, allowlist, date/order/range rule.</td></tr>
+        <tr><td>Handoff contract</td><td><code>QuantDataHandoff</code></td><td>Model output không được bịa ID/metric từ prose.</td></tr>
+        <tr><td>Event contract</td><td><code>ProductEventEnvelope</code> + typed payload</td><td>Replay data nhỏ, versioned, không chứa sensitive-shaped field.</td></tr>
+      </tbody>
+    </table>
+    <h3>Ví dụ intent dễ hiểu</h3>
+    <pre>{
+  "schema_version": "1",
+  "symbols": ["AAPL", "MSFT"],
+  "start_date": "2022-01-01",
+  "end_date": "2024-12-31",
+  "provider": "yfinance",
+  "frequency": "1d",
+  "adjustment": "adjusted",
+  "dataset_alias": "us-tech-demo",
+  "universe_name": "us-tech"
+}</pre>
+    <p>Contract sẽ uppercase/sort symbol, từ chối trùng/rỗng, buộc date range hợp
+      lệ, chỉ chấp nhận provider/frequency hiện hỗ trợ, yêu cầu
+      <code>close</code> và <code>factor</code> trong include fields.</p>
+    <h3>Identity không giống label</h3>
+    <table>
+      <thead><tr><th>Identity</th><th>Được tính từ</th><th>Dùng để</th></tr></thead>
+      <tbody>
+        <tr><td><code>request_fingerprint</code></td><td>Provider parameters đã normalize, không gồm retrieval time.</td><td>Nhận biết cùng một yêu cầu lấy dữ liệu.</td></tr>
+        <tr><td><code>content_hash</code></td><td>Canonical normalized provider content.</td><td>Nhận biết byte/nội dung thực sự thay đổi.</td></tr>
+        <tr><td><code>staging_revision_id</code></td><td>Immutable OHLCV revision.</td><td>Truy vết nguồn vào dataset.</td></tr>
+        <tr><td><code>dataset_revision_id</code></td><td>Canonical file manifest.</td><td>Input bất biến của experiment.</td></tr>
+        <tr><td><code>dataset_alias</code></td><td>Nhãn người dùng chọn.</td><td>Dễ đọc; không phải storage identity.</td></tr>
+        <tr><td><code>experiment_id</code></td><td>Durable job/result identity.</td><td>Poll, dossier, compare, export.</td></tr>
+        <tr><td><code>action_digest</code></td><td>Actor + tool + normalized args + target.</td><td>Ràng buộc approval/idempotency với đúng side effect.</td></tr>
+      </tbody>
+    </table>
+    <h3>Idempotency bằng ví dụ</h3>
+    <div class="callout good"><strong>Tình huống:</strong> browser reconnect và gửi
+      lại cùng request build dataset. Workflow digest giống nhau tạo cùng key.
+      Repository trả workflow cũ; code resume từ stage đã commit hoặc trả kết quả
+      completed. Nó không tạo một dataset logic thứ hai.</div>
+    <div class="callout danger"><strong>Conflict:</strong> nếu cùng idempotency key
+      nhưng arguments digest khác, repository từ chối. “Cùng chìa khóa, khác hành
+      động” không được silently reuse.</div>
+    <h3>Product event envelope</h3>
+    <pre>{
+  "event_id": "evt_v1_…",
+  "schema_version": 1,
+  "sequence": 42,
+  "actor_key": "v1-…",
+  "thread_id": "thread-…",
+  "run_id": "run-…",
+  "event_type": "dataset.ready",
+  "occurred_at": "2026-07-16T…Z",
+  "sensitivity": "internal",
+  "payload": {
+    "dataset_revision_id": "dsr_v1_…",
+    "manifest_hash": "…",
+    "dataset_alias": "us-tech-demo"
+  }
+}</pre>
+    <p>Mỗi payload được validate theo event type, tối đa 32 KiB và reject key có
+      hình dạng nhạy cảm như authorization, cookie, credential, password, secret,
+      token hay raw prompt/content. Event ghi metadata đủ để dựng timeline nhưng
+      không biến event log thành kho prompt/token.</p>
+    <h3>Nhóm event chính</h3>
+    <div>
+      <span class="pill">run.started/completed/failed</span>
+      <span class="pill">agent.delegated</span>
+      <span class="pill">tool.proposed/completed/failed</span>
+      <span class="pill">approval.requested/decided/expired</span>
+      <span class="pill">workflow.transitioned</span>
+      <span class="pill">staging.ready</span>
+      <span class="pill">dataset.ready</span>
+      <span class="pill">factor_snapshot.ready</span>
+      <span class="pill">worker.accepted/leased/started/…</span>
+      <span class="pill">artifact.created/expired/deleted</span>
+      <span class="pill">publication.published</span>
+      <span class="pill">memory.updated</span>
+    </div>
+    <h3>Transactional outbox</h3>
+    <p>Thay vì “commit domain row rồi hy vọng ghi event thành công”, repository
+      ghi domain state và outbox record trong transaction. Background projector
+      chuyển outbox thành replayable event. Nếu projector tạm lỗi, state chính
+      vẫn nhất quán và có thể project lại.</p>
+    <h3>Safe errors</h3>
+    <p>Worker trả error có <code>code</code>, message an toàn, stage và
+      <code>retryable</code>; backend không gửi traceback/raw framework object cho
+      model hay browser. Retry decision dựa trên thuộc tính rõ ràng, không dựa trên
+      model “đoán” rằng lỗi có vẻ tạm thời.</p>
+  </section>
+
+  <section class="chapter" id="chuong-9">
+    <span class="eyebrow">Dữ liệu nào sống ở đâu?</span>
+    <h2>PostgreSQL, filesystem và ownership</h2>
+    <h3>PostgreSQL là product authority</h3>
+    <p>Database có hai vùng ownership: schema <code>langgraph</code> cho checkpoint
+      do LangGraph quản lý, và <code>nexus_domain</code> cho dữ liệu sản phẩm do
+      repository/migration của Nexus quản lý.</p>
+    <table>
+      <thead><tr><th>Nhóm dữ liệu <code>nexus_domain</code></th><th>Ví dụ bảng/record</th><th>Mục đích</th></tr></thead>
+      <tbody>
+        <tr><td>Identity &amp; dataset</td><td>request fingerprints, staging revisions, dataset revisions/aliases/files.</td><td>Immutable lineage và manifest evidence.</td></tr>
+        <tr><td>Experiment &amp; job</td><td>experiments, job attempts.</td><td>Queue/lease/run/recovery/result state.</td></tr>
+        <tr><td>Control</td><td>workflows, transitions, idempotency decisions.</td><td>Composite workflow và duplicate suppression.</td></tr>
+        <tr><td>Human governance</td><td>approval requests, publication effects.</td><td>Proposal → decision → executed effect.</td></tr>
+        <tr><td>Evidence</td><td>lineage nodes/edges, research sources, interpretation reports, dossier exports.</td><td>Truy vết và xuất hồ sơ.</td></tr>
+        <tr><td>Events</td><td>product events, transactional outbox, replay events.</td><td>Timeline và reconnect.</td></tr>
+        <tr><td>User memory</td><td>user memory items + bounded aggregate.</td><td>Fact theo key và prompt middleware.</td></tr>
+        <tr><td>Artifacts</td><td>artifact metadata và tombstones.</td><td>Hash, retention, lifecycle; bytes ở filesystem.</td></tr>
+      </tbody>
+    </table>
+    <h3>Migration lifecycle</h3>
+    <p>Các domain migration hiện đi từ 0001 đến 0008: foundation; workflow/replay;
+      durable jobs; product-event contract; approval execution evidence; dossier;
+      manifest immutability; keyed user memory. Compose chạy
+      <code>domain-migrate</code> trước services. Runtime chỉ verify version/checksum
+      và fail nếu schema không đúng.</p>
+    <div class="callout warn"><strong>Fresh-memory baseline:</strong> migration
+      0008 hiện tạo cả aggregate lẫn keyed items cho database mới. Database từng
+      ghi checksum cũ của 0008 hoặc migration 0009 thuộc baseline đã bỏ phải tạo
+      lại volume; không có đường in-place conversion được hỗ trợ.</div>
+    <h3>Filesystem: bytes lớn, identity vẫn được kiểm soát</h3>
+    <table>
+      <thead><tr><th>Đường dẫn runtime</th><th>Chứa gì</th><th>Cơ chế bảo vệ</th></tr></thead>
+      <tbody>
+        <tr><td><code>data/staging</code></td><td>OHLCV/factor revision đã normalize.</td><td>Actor scope, request/content identity, validation metadata.</td></tr>
+        <tr><td><code>data/qlib</code></td><td>Immutable Qlib provider layout.</td><td>Canonical manifest, file hashes, revision ID.</td></tr>
+        <tr><td><code>data/artifacts</code></td><td>Experiment artifact bytes.</td><td>Metadata/hash/lifecycle trong Postgres, verified download.</td></tr>
+        <tr><td><code>data/ai-trader</code></td><td>SQLite market snapshots và signal feed.</td><td>Nexus-owned table, worker private boundary.</td></tr>
+      </tbody>
+    </table>
+    <p>Không có remote object storage trong baseline. Do đó durability của bytes
+      phụ thuộc một node/volume; Postgres biết manifest và hash nhưng không tự khôi
+      phục file bị mất ở ngoài node.</p>
+    <h3>Actor isolation</h3>
+    <p>Actor key đi từ authentication vào thread owner filter, workflow, dataset
+      link, experiment, approval, memory, event, artifact request và worker header.
+      Production worker dùng pseudonymous actor key cùng credential riêng cho từng
+      quant service; mỗi service có database role tối thiểu riêng và actor-keyed
+      table được bảo vệ thêm bằng PostgreSQL row-level security. Projector và quant
+      coordinator chỉ có routine database hẹp, kiểm tra đúng service role; chúng
+      không có principal bypass RLS tổng quát.</p>
+    <div class="callout"><strong>Ví dụ:</strong> hai người cùng yêu cầu AAPL trong
+      cùng date range có thể tạo/reuse content revision theo policy, nhưng các
+      actor-visible links, workflow, experiment, evidence và download authorization
+      vẫn scope theo actor. Biết một ID của người khác không đủ để truy cập.</div>
+    <h3>User memory là fact store, không phải prompt blob</h3>
+    <p>Mỗi fact có stable generic key như <code>identity.name</code> hoặc
+      <code>preference.language</code>. Save upsert đúng key nên preference mới
+      không đè identity không liên quan. Repository dựng một aggregate text/Markdown
+      xác định, tối đa 16 KiB, để API và prompt middleware dùng.</p>
+    <h3>Retention khác nhau</h3>
+    <table>
+      <thead><tr><th>Loại</th><th>Mặc định</th><th>Ghi chú</th></tr></thead>
+      <tbody>
+        <tr><td>Thread/checkpoint</td><td>12 giờ</td><td>LangGraph TTL delete strategy.</td></tr>
+        <tr><td>Replay event</td><td>24 giờ</td><td>Gap được báo khi sequence cũ đã mất.</td></tr>
+        <tr><td>Pending approval</td><td>15 phút</td><td>Hết hạn thì không được execute.</td></tr>
+        <tr><td>Quant artifact</td><td>90 ngày trong Compose default</td><td>Có lifecycle/tombstone; cấu hình được.</td></tr>
+        <tr><td>User memory</td><td>Không TTL tự động</td><td>Chỉ lưu/xóa khi người dùng có ý định và quyền phù hợp.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="chapter" id="chuong-10">
+    <span class="eyebrow">Composite workflow thứ nhất</span>
+    <h2>Workflow OpenBB → Qlib dataset</h2>
+    <p class="lead">Mục tiêu của workflow là biến một ý định đơn giản — symbol,
+      date range, adjustment, alias, universe — thành một Qlib dataset revision
+      bất biến, có manifest đã xác minh và limitation rõ ràng.</p>
+    <h3>Luồng đầy đủ</h3>
+    <div class="diagram">
+      <div class="diagram-title">PrepareQlibDatasetWorkflow</div>
+      <div class="flow">
+        <div class="box blue"><strong>requested</strong><small>normalize + digest + idempotency</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>staged</strong><small>OpenBB OHLCV revision</small></div>
+        <div class="arrow">→</div>
+        <div class="box amber"><strong>staging_validated</strong><small>quality checks pass</small></div>
+        <div class="arrow">→</div>
+        <div class="box purple"><strong>dataset_built</strong><small>Qlib layout + manifest</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>completed</strong><small>manifest verified + coverage</small></div>
+      </div>
+    </div>
+    <h3>Bước 1 — Validate và normalize ý định</h3>
+    <p>Input chấp nhận 1–300 unique symbols, provider <code>yfinance</code>,
+      frequency <code>1d</code>, một adjustment policy rõ ràng, date range ISO,
+      alias/universe theo pattern an toàn. Symbol được trim, uppercase và sort để
+      cùng ý định có canonical form.</p>
+    <pre>Người dùng:
+"Tạo dataset AAPL và MSFT từ 2022-01-01 đến 2024-12-31,
+ daily, adjusted, alias us-tech-demo."
+
+Ý định chuẩn hóa:
+symbols = ["AAPL", "MSFT"]
+provider = "yfinance"
+frequency = "1d"
+adjustment = "adjusted"
+dataset_alias = "us-tech-demo"
+universe_name = "us-tech"</pre>
+    <h3>Bước 2 — Fetch hoặc resolve staging revision</h3>
+    <p>Backend gọi quant-data-worker qua client, thêm ingestion idempotency key.
+      Worker dùng OpenBB/yfinance, chuẩn hóa thành schema:</p>
+    <pre>date, symbol, open, high, low, close, volume, factor</pre>
+    <p>Date được parse; symbol uppercase; trường giá/volume chuyển sang numeric;
+      row không sử dụng được bị loại; dữ liệu sort theo symbol/date. Trong pipeline
+      OHLCV hiện tại, <code>factor</code> được đặt 1.0 trong normalized staging.
+      Canonical content tạo <code>content_hash</code>; revision lưu metadata,
+      request fingerprint và retrieval time.</p>
+    <h3>Bước 3 — Deterministic staging validation</h3>
+    <table>
+      <thead><tr><th>Check</th><th>Điều kiện lỗi</th><th>Vì sao cần</th></tr></thead>
+      <tbody>
+        <tr><td>Required columns</td><td>Thiếu một cột schema.</td><td>Qlib builder cần shape cố định.</td></tr>
+        <tr><td>Date/symbol uniqueness</td><td>Trùng cặp <code>(date, symbol)</code>.</td><td>Không cho một observation mơ hồ.</td></tr>
+        <tr><td>Required values</td><td>Null hoặc non-numeric ở trường bắt buộc.</td><td>Tránh model input im lặng sai.</td></tr>
+        <tr><td>Volume</td><td>Volume âm.</td><td>Phát hiện dữ liệu vô lý.</td></tr>
+        <tr><td>OHLC consistency</td><td>Quan hệ open/high/low/close không hợp lệ.</td><td>Phát hiện giá bị hỏng.</td></tr>
+        <tr><td>Coverage</td><td>Ghi date range, symbols, missing per symbol và sort status.</td><td>Làm preflight cho experiment.</td></tr>
+      </tbody>
+    </table>
+    <p>Nếu fail, workflow chuyển <code>failed</code> với code
+      <code>invalid_staging_revision</code> và không build Qlib dataset.</p>
+    <h3>Bước 4 — Build immutable Qlib layout</h3>
+    <p>Worker chuyển staged frame sang provider layout có calendars, features và
+      instruments. Dataset revision ID được dẫn xuất từ canonical manifest, không
+      từ alias. Manifest liên kết source staging revision, file list/hash,
+      limitation và metadata coverage.</p>
+    <div class="callout"><strong>Alias và revision:</strong>
+      <code>us-tech-demo</code> là tên người đọc nhớ được; một revision như
+      <code>dsr_v1_…</code> mới là identity mà experiment phải dùng. Nếu provider
+      trả nội dung khác ở lần sau, alias có thể trỏ đến revision mới nhưng revision
+      cũ vẫn bất biến.</div>
+    <h3>Bước 5 — Validate manifest và coverage</h3>
+    <p>Final validation kiểm tra layout, manifest/files/hash, calendar, universe
+      và tính <code>max_test_end</code>. Với Alpha158 label cần hai trading day
+      phía sau, ngày cuối dataset không phải luôn là test end hợp lệ.</p>
+    <pre>Ví dụ calendar kết thúc: 2024-12-31
+Hai trading day cuối dùng cho label horizon.
+max_test_end có thể là: 2024-12-27
+
+→ Test end phải ≤ max_test_end, không dùng thẳng end_date.</pre>
+    <h3>State resume và retry</h3>
+    <p>Nếu worker timeout sau khi staging đã commit, retryable failure được resume
+      từ state suy ra theo partial output:</p>
+    <table>
+      <thead><tr><th>Đã có bằng chứng</th><th>Resume state</th><th>Không lặp lại</th></tr></thead>
+      <tbody>
+        <tr><td><code>staging_revision_id</code></td><td><code>staged</code></td><td>Không fetch lại provider nếu revision đã resolve.</td></tr>
+        <tr><td><code>staging_validated=true</code></td><td><code>staging_validated</code></td><td>Không làm mất kết quả validation đã commit.</td></tr>
+        <tr><td><code>dataset_revision_id</code></td><td><code>dataset_built</code></td><td>Không build một revision mới chỉ vì transport lỗi.</td></tr>
+      </tbody>
+    </table>
+    <h3>Factor snapshot là nhánh riêng</h3>
+    <p><code>fetch_factor_snapshot</code> lấy market cap, valuation, leverage,
+      profitability/growth/margin context hiện tại khi provider trả được. Nó có
+      revision/fingerprint/hash riêng nhưng được gắn cờ:</p>
+    <ul>
+      <li><code>point_in_time_status = unsupported</code>;</li>
+      <li>không có availability date đáng tin cậy;</li>
+      <li>không đủ điều kiện làm historical training feature;</li>
+      <li>chỉ dùng làm current context.</li>
+    </ul>
+    <h3>Financial limitations được ghi cùng dataset</h3>
+    <table>
+      <thead><tr><th>Giới hạn</th><th>Trạng thái baseline</th><th>Hệ quả</th></tr></thead>
+      <tbody>
+        <tr><td>Point-in-time</td><td>Unsupported</td><td>Không chứng minh dữ liệu đúng như biết tại thời điểm lịch sử.</td></tr>
+        <tr><td>Universe membership</td><td>User supplied; membership dates unavailable</td><td>Có nguy cơ survivorship bias.</td></tr>
+        <tr><td>Adjustment semantics</td><td>Provider-defined, verification unsupported</td><td>Cần thận trọng với split/dividend.</td></tr>
+        <tr><td>Calendar</td><td>Union của returned rows</td><td>Không phải exchange calendar đã chứng nhận.</td></tr>
+        <tr><td>Missing data</td><td>Không fill per symbol</td><td>Missing row giữ nguyên để nhìn thấy.</td></tr>
+        <tr><td>Provider revision/delisting</td><td>Unsupported</td><td>Không tuyên bố production-grade market history.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>Kết luận đúng:</strong> dataset “manifest
+      verified” nghĩa là các file hiện tại khớp manifest bất biến. Nó không có
+      nghĩa provider đã trở thành point-in-time hoặc survivorship-free.</div>
+  </section>
+
+  <section class="chapter" id="chuong-11">
+    <span class="eyebrow">Composite workflow thứ hai</span>
+    <h2>Workflow Qlib experiment</h2>
+    <p class="lead">Workflow này nhận một dataset revision đã xác minh, kiểm tra
+      range/model/strategy, tạo durable experiment job rồi để quant-worker thực thi
+      và công bố result/artifact đã kiểm chứng.</p>
+    <h3>Phần backend: validate trước, submit sau</h3>
+    <div class="flow diagram">
+      <div class="box blue"><strong>requested</strong><small>intent + digest</small></div>
+      <div class="arrow">→</div>
+      <div class="box amber"><strong>dataset_validated</strong><small>manifest + limitation + max_test_end</small></div>
+      <div class="arrow">→</div>
+      <div class="box purple"><strong>submit 202</strong><small>durable worker job</small></div>
+      <div class="arrow">→</div>
+      <div class="box green"><strong>completed workflow</strong><small>trả experiment ID/status</small></div>
+    </div>
+    <p><b>Lưu ý:</b> “workflow completed” ở backend có nghĩa job đã được worker
+      chấp nhận bền vững và ID đã được trả, không nhất thiết model training đã chạy
+      xong. Agent tiếp tục poll result bằng tool riêng.</p>
+    <h3>Contract experiment</h3>
+    <table>
+      <thead><tr><th>Trường</th><th>Allowlist / giới hạn</th></tr></thead>
+      <tbody>
+        <tr><td>Dataset</td><td><code>dataset_revision_id</code> dạng <code>dsr_v1_…</code> và universe có thật.</td></tr>
+        <tr><td>Feature set</td><td>Chỉ <code>Alpha158</code>.</td></tr>
+        <tr><td>Model</td><td><code>lightgbm</code>, <code>linear</code>, <code>xgboost</code>, <code>catboost</code>.</td></tr>
+        <tr><td>Segments</td><td>Train, valid, test có thứ tự, không overlap, nằm trong coverage.</td></tr>
+        <tr><td>Strategy</td><td><code>topk_dropout</code>; topk 1–300, n_drop 0–100 và ≤ topk.</td></tr>
+        <tr><td>Account/cost</td><td>Bounded account, open cost, close cost, min cost.</td></tr>
+      </tbody>
+    </table>
+    <h3>Ví dụ cấu hình baseline</h3>
+    <pre>{
+  "dataset_revision_id": "dsr_v1_…",
+  "universe": "us-tech",
+  "model": "linear",
+  "train": {"start": "2022-01-03", "end": "2023-06-30"},
+  "valid": {"start": "2023-07-03", "end": "2023-12-29"},
+  "test":  {"start": "2024-01-02", "end": "2024-12-27"},
+  "topk": 2,
+  "n_drop": 1,
+  "open_cost": 0.0005,
+  "close_cost": 0.0015
+}</pre>
+    <p><code>linear</code> thích hợp làm baseline nhanh; mặc định sản phẩm là
+      <code>lightgbm</code>. XGBoost/CatBoost chỉ được chọn khi người dùng yêu cầu
+      so sánh hoặc nêu tên.</p>
+    <h3>Preflight trước khi chiếm worker slot</h3>
+    <ul>
+      <li>Dataset tồn tại và manifest verified.</li>
+      <li>Universe có trong dataset.</li>
+      <li>Ba segment nằm trong calendar.</li>
+      <li>Train &lt; valid &lt; test, không overlap.</li>
+      <li>Test end chừa đủ hai later trading days cho Alpha158 label.</li>
+      <li>Model, feature set và strategy nằm trong allowlist.</li>
+    </ul>
+    <div class="callout good"><strong>Lợi ích:</strong> request sai ngày bị từ chối
+      trước khi consume một job slot và trước khi Qlib khởi tạo tài nguyên nặng.</div>
+    <h3>Worker job state machine</h3>
+    <div class="diagram">
+      <div class="flow">
+        <div class="box blue"><strong>queued</strong><small>đã commit</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>leased</strong><small>coordinator nhận lease</small></div>
+        <div class="arrow">→</div>
+        <div class="box purple"><strong>running</strong><small>Qlib stages</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>completed</strong><small>result + artifacts published</small></div>
+      </div>
+      <div class="flow" style="margin-top:3mm">
+        <div class="box amber"><strong>cancelling</strong><small>cooperative request</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>cancelled</strong><small>partial artifacts removed</small></div>
+        <div class="arrow">|</div>
+        <div class="box pink"><strong>failed</strong><small>safe stage/code</small></div>
+        <div class="arrow">|</div>
+        <div class="box"><strong>expired / requeued</strong><small>TTL/recovery policy</small></div>
+      </div>
+    </div>
+    <p>Production dùng PostgreSQL job state; coordinator có global active job
+      limit, queued TTL, max execution time và actor storage quota. Khi worker
+      restart, state bền vững cho phép lease/recovery policy xử lý job thay vì dựa
+      vào memory của process.</p>
+    <h3>Qlib execution stages</h3>
+    <p>Runner cô lập Qlib/MLflow runtime tracking khỏi artifact evidence, chuẩn bị
+      dataset/handler/model, train, generate signal, backtest và ghi artifact atomically.
+      Exception được gắn stage; partial artifact bị dọn khi không thể publish an toàn.</p>
+    <h3>Kết quả và ý nghĩa metric</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Giải thích đơn giản</th><th>Không nên hiểu là</th></tr></thead>
+      <tbody>
+        <tr><td>IC</td><td>Tương quan trung bình giữa score dự báo và label.</td><td>Phần trăm lợi nhuận.</td></tr>
+        <tr><td>ICIR</td><td>IC trung bình chia độ biến động IC; đo độ ổn định tương đối.</td><td>Bảo đảm model ổn định tương lai.</td></tr>
+        <tr><td>Rank IC / Rank ICIR</td><td>Tương quan theo thứ hạng và độ ổn định của nó.</td><td>Khả năng dự báo giá chính xác tuyệt đối.</td></tr>
+        <tr><td>Annualized return</td><td>Lợi suất lịch sử annualize trong backtest.</td><td>Lợi suất cam kết.</td></tr>
+        <tr><td>Excess return after cost</td><td>Phần vượt benchmark sau cost giả định.</td><td>Chi phí thực tế đã được bao phủ hết.</td></tr>
+        <tr><td>Information ratio</td><td>Excess return so với biến động của excess return.</td><td>Sharpe ratio hay xác suất thắng.</td></tr>
+        <tr><td>Max drawdown</td><td>Mức sụt giảm peak-to-trough lớn nhất trong mẫu.</td><td>Worst case tương lai.</td></tr>
+        <tr><td>Turnover</td><td>Tần suất/mức độ thay đổi holdings.</td><td>Chi phí giao dịch đã chính xác cho mọi market.</td></tr>
+      </tbody>
+    </table>
+    <h3>Artifact evidence</h3>
+    <p>Runner tạo ba loại artifact: <code>predictions.parquet</code>,
+      <code>report.parquet</code> và <code>positions.pkl</code>. Mỗi artifact có ID,
+      producer, type, media type, size, SHA-256, retention, storage status,
+      download eligibility và thời điểm hết hạn.</p>
+    <p>Backend download theo hai bước: lấy manifest/authorization từ worker, sau đó
+      tải bytes với size limit và xác minh content hash. Nếu hash khác, trả conflict
+      thay vì chuyển file hỏng cho browser.</p>
+    <h3>Interpretation là evidence mới, không sửa result</h3>
+    <p>Sau completed result, quant-researcher gọi
+      <code>record_experiment_interpretation</code> một lần, liên kết đúng metric
+      và artifact IDs. Report là append-only mapping; nó không thay đổi metric,
+      experiment hay artifact gốc.</p>
+  </section>
+
+  <section class="chapter" id="chuong-12">
+    <span class="eyebrow">Cache ngoài chat path và publish có kiểm soát</span>
+    <h2>AI-Trader integration</h2>
+    <p class="lead"><code>ai-trader-worker</code> là adapter nhỏ do Nexus sở hữu,
+      không phải toàn bộ upstream AI-Trader platform. Nó tách provider latency khỏi
+      chat path bằng snapshot cache và cung cấp signal feed/publication boundary.</p>
+    <h3>Hai luồng độc lập</h3>
+    <div class="diagram">
+      <div class="flow">
+        <div class="box blue"><strong>Alpha Vantage</strong><small>NEWS_SENTIMENT</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>Refresh loop</strong><small>interval + category bounds</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>SQLite snapshots</strong><small>overview + news</small></div>
+        <div class="arrow">→</div>
+        <div class="box purple"><strong>Read tools</strong><small>không chờ provider</small></div>
+      </div>
+      <div class="flow" style="margin-top:4mm">
+        <div class="box blue"><strong>Supervisor</strong><small>delegate publish intent</small></div>
+        <div class="arrow">→</div>
+        <div class="box amber"><strong>Approval</strong><small>exact content + digest</small></div>
+        <div class="arrow">→</div>
+        <div class="box"><strong>Publication service</strong><small>evidence + idempotency</small></div>
+        <div class="arrow">→</div>
+        <div class="box green"><strong>Signal feed</strong><small>SQLite record</small></div>
+      </div>
+    </div>
+    <h3>Market intelligence snapshot</h3>
+    <p>Bốn category là <code>equities</code>, <code>macro</code>,
+      <code>crypto</code> và <code>commodities</code>. Refresh daemon gọi provider,
+      normalize/dedupe news, tạo category summary và overview, sau đó ghi SQLite.
+      Read endpoint thêm freshness/staleness metadata.</p>
+    <h3>Phân biệt ba trạng thái dễ nhầm</h3>
+    <table>
+      <thead><tr><th>Tool result</th><th>Ý nghĩa đúng</th><th>Không nên nói</th></tr></thead>
+      <tbody>
+        <tr><td><code>ok=false</code>, <code>ai_trader_not_configured</code></td><td>Backend chưa có base URL connector.</td><td>Worker có snapshot rỗng.</td></tr>
+        <tr><td><code>ok=true</code>, <code>available=false</code></td><td>Connector hoạt động nhưng chưa có cached snapshot phù hợp.</td><td>Base URL sai.</td></tr>
+        <tr><td><code>ok=true</code>, feed <code>total=0</code></td><td>Chưa có strategy/discussion phù hợp trong signal feed.</td><td>Không có market news cho symbol.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>Ví dụ AAPL:</strong> agent gọi market-news với
+      filter <code>AAPL</code> và đọc <code>matched_symbols</code> /
+      <code>unmatched_symbols</code>. Nó không lấy signal feed rỗng làm bằng chứng
+      rằng không có tin AAPL.</div>
+    <h3>Tool surface</h3>
+    <table>
+      <thead><tr><th>Tool</th><th>Loại</th><th>Permission / governance</th></tr></thead>
+      <tbody>
+        <tr><td><code>get_ai_trader_market_overview</code></td><td>Read snapshot</td><td><code>ai_trader:read</code></td></tr>
+        <tr><td><code>get_ai_trader_market_news</code></td><td>Read snapshot + category/symbol filter</td><td><code>ai_trader:read</code></td></tr>
+        <tr><td><code>get_ai_trader_signal_feed</code></td><td>Read Nexus-published feed</td><td><code>ai_trader:read</code></td></tr>
+        <tr><td><code>publish_ai_trader_strategy</code></td><td>Side effect</td><td><code>ai_trader:publish</code> + native approval</td></tr>
+        <tr><td><code>publish_ai_trader_discussion</code></td><td>Side effect</td><td><code>ai_trader:publish</code> + native approval</td></tr>
+        <tr><td><code>poll_ai_trader_heartbeat</code></td><td>Protected explicit call</td><td><code>ai_trader:read</code>; không chạy ngầm trong agent turn</td></tr>
+      </tbody>
+    </table>
+    <h3>Governed publication</h3>
+    <div class="numbered">
+      <div><span class="num">1</span><div>Model đề xuất exact tool arguments, kèm
+        market/symbol, nội dung, limitation và evidence IDs.</div></div>
+      <div><span class="num">2</span><div>Approval middleware normalize args, tính
+        target boundary + action digest, commit pending record rồi interrupt graph.</div></div>
+      <div><span class="num">3</span><div>Người dùng approve/reject đúng proposal.
+        Decision được ghi trước khi execution.</div></div>
+      <div><span class="num">4</span><div>Publication service yêu cầu approval hợp
+        lệ, reserve effect bằng idempotency, gọi worker với actor/digest.</div></div>
+      <div><span class="num">5</span><div>Worker ghi SQLite signal hoặc trả conflict;
+        Postgres đánh dấu published/failed và liên kết evidence.</div></div>
+    </div>
+    <h3>Worker authentication</h3>
+    <p>Overview/news/feed read endpoints không cần token bên trong private worker
+      boundary. Ready, refresh, publish và heartbeat cần
+      <code>AI_TRADER_TOKEN</code> qua Bearer hoặc <code>X-Claw-Token</code>.
+      Production đồng thời dựa vào private networking; port worker không public.</p>
+    <h3>SQLite ownership</h3>
+    <p>Worker chỉ tạo bảng <code>nexus_signals</code> và
+      <code>nexus_market_snapshots</code>, không migrate hay chạm upstream table.
+      PostgreSQL vẫn là authority cho governed publication; SQLite là local adapter
+      store của target system.</p>
+  </section>
+
+  <section class="chapter" id="chuong-13">
+    <span class="eyebrow">Từ con số quay về nguồn gốc</span>
+    <h2>Evidence, dossier và lineage</h2>
+    <h3>Evidence graph</h3>
+    <div class="flow diagram">
+      <div class="box blue"><strong>Run / source</strong><small>câu hỏi và nguồn</small></div>
+      <div class="arrow">→</div>
+      <div class="box"><strong>Staging revision</strong><small>request + content hash</small></div>
+      <div class="arrow">→</div>
+      <div class="box purple"><strong>Dataset revision</strong><small>manifest + files</small></div>
+      <div class="arrow">→</div>
+      <div class="box green"><strong>Experiment</strong><small>spec + attempts</small></div>
+      <div class="arrow">→</div>
+      <div class="box amber"><strong>Metric / artifact</strong><small>kết quả kiểm chứng</small></div>
+      <div class="arrow">→</div>
+      <div class="box pink"><strong>Interpretation / publication</strong><small>claim có reference</small></div>
+    </div>
+    <p>Lineage repository cho phép duyệt backward, forward hoặc both, depth 1–8 và
+      giới hạn node. Query luôn scope theo actor. Một node ID hợp lệ nhưng không
+      thuộc actor được đối xử như không tìm thấy.</p>
+    <h3>Experiment dossier chứa gì?</h3>
+    <table>
+      <thead><tr><th>Nhóm</th><th>Nội dung</th><th>Câu hỏi nó trả lời</th></tr></thead>
+      <tbody>
+        <tr><td>Workflow</td><td>Normalized input, state/stage, transition, thread/run.</td><td>Ý định nào và đi qua bước nào?</td></tr>
+        <tr><td>Dataset</td><td>Revision, source staging, manifest/files, validation, limitation.</td><td>Kết quả dùng dữ liệu chính xác nào?</td></tr>
+        <tr><td>Specification</td><td>Model, feature, strategy, segments, cost, label horizon.</td><td>Thử nghiệm thực sự chạy cấu hình gì?</td></tr>
+        <tr><td>Attempts</td><td>Attempt, status/stage, runtime versions.</td><td>Có retry/recovery hay không?</td></tr>
+        <tr><td>Metrics</td><td>Value, group, unit, meaning, calculation version, evidence status.</td><td>Con số có định nghĩa và bằng chứng đủ không?</td></tr>
+        <tr><td>Sources</td><td>Locator, retrieval status, hash, metadata.</td><td>Claim ngoài dựa trên nguồn nào?</td></tr>
+        <tr><td>Artifacts</td><td>Hash, retention, storage status, download eligibility.</td><td>File kết quả còn nguyên và tải được không?</td></tr>
+        <tr><td>Interpretation</td><td>Report + exact evidence references.</td><td>Nhận định nào được nối với metric/artifact nào?</td></tr>
+        <tr><td>Approval/publication</td><td>Decision, execution status, target reference.</td><td>Ai đã cho phép side effect nào?</td></tr>
+        <tr><td>Evidence gaps</td><td>Code/message về phần thiếu hoặc yếu.</td><td>Phần nào không đủ để kết luận mạnh?</td></tr>
+      </tbody>
+    </table>
+    <h3>Compare và export</h3>
+    <p>API compare nhận 2–5 experiment ID, dedupe và validate pattern trước query.
+      Điều này hỗ trợ đối chiếu model/config/metric cùng scope actor. Export tạo
+      JSON dossier bundle, trả content hash trong header và ghi export evidence.</p>
+    <h3>Artifact download an toàn</h3>
+    <div class="numbered">
+      <div><span class="num">1</span><div>Browser yêu cầu backend bằng artifact ID,
+        không gọi worker trực tiếp.</div></div>
+      <div><span class="num">2</span><div>Backend kiểm tra <code>quant:read</code>,
+        actor scope, storage status và download eligibility.</div></div>
+      <div><span class="num">3</span><div>Backend tải với max-byte limit, tính/so
+        content hash với manifest.</div></div>
+      <div><span class="num">4</span><div>Chỉ khi khớp mới trả bytes cùng
+        <code>nosniff</code> và hash header.</div></div>
+    </div>
+    <h3>Partial evidence không bị che giấu</h3>
+    <p>Dossier có evidence gap thì UI gắn nhãn partial và liệt kê code/message.
+      “Không tìm thấy obvious issue” không được coi là bằng chứng hoàn chỉnh.
+      Source retrieval, metric definition, artifact status và lineage reference
+      phải được đánh giá riêng.</p>
+    <div class="callout warn"><strong>Ví dụ:</strong> metric có value nhưng thiếu
+      calculation version hoặc artifact reference vẫn có thể hiển thị để điều tra,
+      nhưng không nên được coi là fully evidenced.</div>
+  </section>
+
+  <section class="chapter" id="chuong-14">
+    <span class="eyebrow">Defense in depth</span>
+    <h2>Bảo mật, approval và user memory</h2>
+    <h3>Role → permission</h3>
+    <table>
+      <thead><tr><th>Role</th><th>Permissions</th><th>Chân dung sử dụng</th></tr></thead>
+      <tbody>
+        <tr><td><code>user</code></td><td>chat, research read, AI-Trader read</td><td>Hỏi đáp/nghiên cứu và đọc market context.</td></tr>
+        <tr><td><code>analyst</code></td><td>user + <code>quant:read</code>, <code>quant:data:write</code>, <code>quant:experiment:run</code>, <code>quant:interpretation:write</code></td><td>Chuẩn bị dataset, experiment và Evidence.</td></tr>
+        <tr><td><code>publisher</code></td><td>user + <code>ai_trader:publish</code></td><td>Publish strategy/discussion có approval.</td></tr>
+        <tr><td><code>admin</code></td><td>chat, research, AI read/publish, quant, Studio, maintenance</td><td>Quản trị private beta.</td></tr>
+      </tbody>
+    </table>
+    <p>Nhiều role có thể cộng permissions. Backend yêu cầu ít nhất
+      <code>chat:run</code> để token được coi là Nexus user hợp lệ.</p>
+    <h3>Production validation fail closed</h3>
+    <p>Khi <code>NEXUS_ENV=production</code>, startup từ chối default database
+      password, thiếu OIDC issuer/audience, tenant HMAC, worker token, checkpoint
+      AES key; issuer/JWKS phải HTTPS; JWT algorithm chỉ được thuộc asymmetric
+      RS/PS/ES allowlist; HMAC/worker secret phải đủ dài.</p>
+    <h3>Approval lifecycle</h3>
+    <div class="flow diagram">
+      <div class="box blue"><strong>Proposed</strong><small>exact normalized action</small></div>
+      <div class="arrow">→</div>
+      <div class="box amber"><strong>Pending</strong><small>record commit + graph interrupt</small></div>
+      <div class="arrow">→</div>
+      <div class="box"><strong>Approve / reject / expire</strong><small>durable decision</small></div>
+      <div class="arrow">→</div>
+      <div class="box green"><strong>Execute once</strong><small>idempotency + result reference</small></div>
+    </div>
+    <h4>Agent-initiated actions cần native approval</h4>
+    <ul>
+      <li><code>save_user_memory</code></li>
+      <li><code>delete_user_memory</code></li>
+      <li><code>publish_ai_trader_strategy</code></li>
+      <li><code>publish_ai_trader_discussion</code></li>
+      <li><code>prepare_qlib_dataset</code></li>
+      <li><code>fetch_factor_snapshot</code></li>
+      <li><code>run_governed_qlib_experiment</code></li>
+      <li><code>record_experiment_interpretation</code></li>
+    </ul>
+    <p>Action digest gồm actor, tool, normalized arguments, schema version,
+      tool-call identity và target boundary. Approve một action A không cho phép
+      thay arguments thành B khi resume. Quant effect chỉ nhận capability tạm thời
+      sau khi middleware kiểm tra durable approval dưới advisory lock; direct tool
+      invocation không có capability sẽ fail closed. Approval hết TTL hoặc đã
+      reject không thể execute.</p>
+    <h3>Memory policy</h3>
+    <p>Supervisor chỉ lưu/xóa khi người dùng yêu cầu rõ ràng. Nội dung phù hợp là
+      fact profile không nhạy cảm; không lưu credential, auth data, financial
+      account identifier, health data hay sensitive personal data.</p>
+    <pre>Yêu cầu phù hợp:
+"Hãy nhớ tôi thích câu trả lời bằng tiếng Việt."
+→ memory_key: preference.language
+→ content: "Ưu tiên câu trả lời bằng tiếng Việt."
+→ hiển thị approval → approve → upsert
+
+Yêu cầu không phù hợp:
+"Hãy nhớ access token này…"
+→ từ chối lưu, không đưa token vào memory/event/docs.</pre>
+    <h3>Memory injection không nâng quyền</h3>
+    <p>Prompt middleware nạp aggregate dưới một <code>&lt;user_memory&gt;</code>
+      block và nói rõ đây là user-controlled reference, không phải system
+      instruction. Nội dung bên trong không được phép thay đổi policy hay cấp tool.</p>
+    <h3>Hai con đường xóa memory</h3>
+    <ul>
+      <li><b>Qua agent:</b> model đề xuất <code>delete_user_memory</code>, gây
+        interrupt và cần approve.</li>
+      <li><b>Qua Settings:</b> người dùng bấm xóa trực tiếp; browser gọi authenticated
+        <code>DELETE /v1/memory</code>. Click là explicit user action, không phải
+        model tự quyết định.</li>
+    </ul>
+    <h3>Memory side-effect serialization</h3>
+    <p>Approved memory tool lấy Postgres advisory lock theo actor, verify approval,
+      reserve idempotency theo tool-call identity, execute hoặc reuse result,
+      commit <code>memory.updated</code>, rồi ghi execution evidence. Hai tool call
+      đồng thời của cùng actor không silently overwrite ngoài thứ tự.</p>
+    <h3>Worker boundary</h3>
+    <p>Quant workers trong production dùng credential riêng
+      <code>NEXUS_QUANT_WORKER_TOKEN</code> và
+      <code>NEXUS_QUANT_DATA_WORKER_TOKEN</code> cùng pseudonymous actor header.
+      AI-Trader protected endpoints dùng token riêng. Compose beta không publish
+      backend/worker/Postgres ports; frontend chỉ bind loopback để trusted ingress
+      đứng trước.</p>
+    <h3>Container hardening</h3>
+    <ul>
+      <li>Non-root user, drop all Linux capabilities, <code>no-new-privileges</code>.</li>
+      <li>Read-only root filesystem; chỉ named volume/tmpfs cần thiết được writable.</li>
+      <li>CPU, memory và PID được giới hạn theo profile private-beta 16 GB.</li>
+      <li>Production image không chứa pip/uv/compiler/git; frontend image không chứa Node/npm.</li>
+      <li>Runtime secret đi qua environment/secret mount, không bake vào image.</li>
+      <li>CI scan toàn bộ Git history, audit dependency dev/runtime, tạo SBOM và chặn
+        HIGH/CRITICAL vulnerability theo policy có kiểm soát.</li>
+    </ul>
+    <h3>Threat → control map</h3>
+    <table>
+      <thead><tr><th>Threat</th><th>Control chính</th><th>Control bổ sung</th></tr></thead>
+      <tbody>
+        <tr><td>Token giả/hết hạn</td><td>OIDC signature, issuer, audience, exp/iat/sub.</td><td>Asymmetric algorithm allowlist.</td></tr>
+        <tr><td>Cross-tenant access</td><td>HMAC actor key + PostgreSQL RLS.</td><td>DB roles và routine cross-actor tối thiểu.</td></tr>
+        <tr><td>Model tự publish/lưu memory</td><td>Native approval interrupt.</td><td>Digest, TTL, idempotency, execution evidence.</td></tr>
+        <tr><td>Prompt/event làm lộ secret</td><td>Bound input; event sensitive-key rejection.</td><td>Không ghi raw prompt/content vào product event.</td></tr>
+        <tr><td>Unsafe deserialization</td><td>Strict checkpoint serialization, no pickle fallback.</td><td>AES encrypted content fields.</td></tr>
+        <tr><td>Artifact bị sửa</td><td>Immutable manifest + SHA-256 verified download.</td><td>Status/quarantine/tombstone.</td></tr>
+        <tr><td>Browser render link nguy hiểm</td><td>Safe URL filtering.</td><td>CSP, nosniff, no-referrer.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="chapter" id="chuong-15">
+    <span class="eyebrow">Từ source đến một stack chạy được</span>
+    <h2>Khởi chạy và triển khai</h2>
+    <h3>Yêu cầu công cụ</h3>
+    <ul>
+      <li>Python 3.11 và <code>uv</code>.</li>
+      <li>Node.js 22 và npm.</li>
+      <li>PostgreSQL 16.</li>
+      <li>Docker Compose nếu dùng container profile.</li>
+    </ul>
+    <h3>Docker quick start cho local</h3>
+    <pre>cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+cp ai-trader-worker/.env.example ai-trader-worker/.env
+
+# Điền model credential vào file local, không commit.
+docker compose --env-file backend/.env up --build -d
+
+# Mở:
+http://localhost:8080</pre>
+    <p>Base Compose dựng Postgres, migration job, backend, ba worker, AI-Trader
+      refresh daemon và frontend. Backend bind loopback port 2024; AI-Trader worker
+      có loopback port 8100 trong development; frontend mở 8080.</p>
+    <h3>Host-run stack</h3>
+    <pre>cd backend && uv sync --extra dev
+cd ../quant-worker && uv sync
+cd ../quant-data-worker && uv sync
+cd ../ai-trader-worker && uv sync --extra dev
+cd ../frontend && npm install
+cd ..
+source backend/.venv/bin/activate
+./run.sh</pre>
+    <p>Real Qlib cần extra <code>qlib</code> của quant-worker; real OpenBB ingest
+      cần extra <code>openbb</code> của quant-data-worker. Không có optional worker,
+      launcher có thể bỏ qua service tương ứng, nhưng tool phải trả structured
+      unavailable error — không được coi là end-to-end success.</p>
+    <h3>Host-run ports</h3>
+    <table>
+      <thead><tr><th>Service</th><th>URL</th><th>Ai gọi</th></tr></thead>
+      <tbody>
+        <tr><td>Frontend Vite</td><td><code>http://localhost:5173</code></td><td>Browser.</td></tr>
+        <tr><td>LangGraph/backend</td><td><code>http://127.0.0.1:2024</code></td><td>Frontend dev.</td></tr>
+        <tr><td>Quant worker</td><td><code>http://127.0.0.1:8000</code></td><td>Backend.</td></tr>
+        <tr><td>Quant data worker</td><td><code>http://127.0.0.1:8001</code></td><td>Backend.</td></tr>
+        <tr><td>AI-Trader worker</td><td><code>http://127.0.0.1:8100</code></td><td>Backend/refresh daemon.</td></tr>
+      </tbody>
+    </table>
+    <h3><code>run.sh</code> làm những gì?</h3>
+    <div class="numbered">
+      <div><span class="num">1</span><div>Tìm LangGraph CLI/Python, npm và uv.</div></div>
+      <div><span class="num">2</span><div>Kiểm tra PostgreSQL; thử khởi động Compose
+        Postgres local nếu cần; không tiếp tục khi DB không reachable.</div></div>
+      <div><span class="num">3</span><div>Chạy domain migration local trừ khi
+        <code>NEXUS_AUTO_MIGRATE=0</code>.</div></div>
+      <div><span class="num">4</span><div>Kiểm tra port 2024/5173/8000/8001/8100 để
+        tránh hai stack chồng nhau.</div></div>
+      <div><span class="num">5</span><div>Khởi động worker nào có runtime, backend
+        và frontend; ghi log theo service dưới <code>data/logs</code>.</div></div>
+      <div><span class="num">6</span><div>Nếu một service dừng, terminate phần còn
+        lại để không để stack nửa sống nửa chết.</div></div>
+    </div>
+    <h3>Migration commands</h3>
+    <pre>uv run --project backend python -m source.infrastructure.migrations status
+uv run --project backend python -m source.infrastructure.migrations upgrade</pre>
+    <p>Compose dùng lệnh <code>bootstrap</code> để upgrade schema và provision
+      roles. Rollback chỉ dành cho disposable local data với destructive flag rõ
+      ràng; dữ liệu đã tồn tại nên dùng forward migration.</p>
+    <h3>Private-beta overlay</h3>
+    <pre>docker compose +  -f docker-compose.yml +  -f docker-compose.beta.yml +  --env-file /path/to/beta.env +  up --build -d</pre>
+    <table>
+      <thead><tr><th>Khác biệt</th><th>Local base</th><th>Single-node private beta</th></tr></thead>
+      <tbody>
+        <tr><td>Auth</td><td>Có thể dùng local actor.</td><td>OIDC bắt buộc, HTTPS issuer.</td></tr>
+        <tr><td>Database credential</td><td>Development default được phép.</td><td>Non-default + role riêng backend/quant-data/quant.</td></tr>
+        <tr><td>Worker auth</td><td>Có thể nới trong development.</td><td>Shared worker token bắt buộc.</td></tr>
+        <tr><td>Checkpoint</td><td>Strict serialization.</td><td>Thêm AES content encryption.</td></tr>
+        <tr><td>Network</td><td>Một số loopback port cho dev.</td><td>Internal network; chỉ frontend bind loopback.</td></tr>
+        <tr><td>Volumes</td><td>Bind vào <code>./data</code>.</td><td>Named volumes cho qlib/artifact/staging/AI data.</td></tr>
+        <tr><td>Container</td><td>Development targets.</td><td>Production target, non-root, cap drop, tmpfs.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout danger"><strong>Không làm:</strong> không chép secret thật
+      vào tài liệu, command history, commit, log hay screenshot. Dùng các
+      <code>.env.example</code> để biết tên biến và secret store/environment riêng
+      để cấp giá trị.</div>
+  </section>
+
+  <section class="chapter" id="chuong-16">
+    <span class="eyebrow">Nhìn thấy và xử lý sự cố</span>
+    <h2>Quan sát, lỗi và phục hồi</h2>
+    <h3>Health khác readiness</h3>
+    <table>
+      <thead><tr><th>Probe</th><th>Trả lời câu hỏi</th><th>Ví dụ</th></tr></thead>
+      <tbody>
+        <tr><td>Health</td><td>Process/API còn sống không?</td><td>Worker <code>GET /health</code> có <code>process_alive=true</code>.</td></tr>
+        <tr><td>Readiness</td><td>Dependency/control plane có đủ để nhận công việc không?</td><td>Worker <code>GET /ready</code>; backend operational readiness kiểm tra DB.</td></tr>
+        <tr><td>Frontend health badge</td><td>Browser có kết nối được backend không?</td><td>Gọi <code>/ok</code>, cho phép refresh thủ công.</td></tr>
+      </tbody>
+    </table>
+    <p>Một process có thể healthy nhưng not ready khi database, token hoặc provider
+      dependency cần thiết chưa sẵn sàng. Autosupervision/operator không nên gộp
+      hai tín hiệu này.</p>
+    <h3>Structured logs</h3>
+    <p>Các service cấu hình log có tên service, environment, event name và safe
+      typed fields. Production default dùng JSON để tập trung log; local launcher
+      prefix mỗi dòng theo service và tách file theo timestamped session. Không
+      đưa secret, raw authorization hay prompt đầy đủ vào event/log.</p>
+    <h3>Failure taxonomy</h3>
+    <table>
+      <thead><tr><th>Failure</th><th>Dấu hiệu</th><th>Hành vi đúng</th></tr></thead>
+      <tbody>
+        <tr><td>Input không hợp lệ</td><td>HTTP 422 hoặc handoff error không retryable.</td><td>Sửa symbol/date/range/model; không retry y hệt.</td></tr>
+        <tr><td>Worker unavailable/timeout</td><td>Stable code, thường retryable.</td><td>Giữ workflow identity và resume từ committed stage.</td></tr>
+        <tr><td>Manifest/hash mismatch</td><td>Validation fail hoặc HTTP 409 download.</td><td>Fail closed; không dùng bytes; điều tra/quarantine.</td></tr>
+        <tr><td>Approval reject/expire</td><td>Decision event và no execution reference.</td><td>Dừng side effect; không model-retry proposal.</td></tr>
+        <tr><td>OIDC/JWKS unavailable</td><td>401/503 auth error.</td><td>Khôi phục IdP/JWKS; không bypass production auth.</td></tr>
+        <tr><td>Event replay gap</td><td><code>gap=true</code>.</td><td>Không giả vờ timeline đầy đủ; reload product state phù hợp.</td></tr>
+        <tr><td>Qlib deterministic failure</td><td><code>qlib_execution_failed</code>, stage cụ thể.</td><td>Không gọi lại trừ khi error nói retryable.</td></tr>
+        <tr><td>AI snapshot empty</td><td><code>ok=true</code>, <code>available=false</code>.</td><td>Refresh/configure provider; không gọi là connector failure.</td></tr>
+      </tbody>
+    </table>
+    <h3>Outbox projector failure</h3>
+    <p><code>http_app.py</code> chạy background loop. Nếu projection lỗi, nó log
+      <code>product_event.projection_failed</code>, chờ poll interval và thử lại.
+      Domain transaction đã commit không bị rollback bởi lỗi projection sau đó.</p>
+    <h3>Worker restart</h3>
+    <ul>
+      <li>Quant-data immutable revision giúp build/fetch retry không mất identity.</li>
+      <li>Quant-worker job/lease/attempt nằm ở Postgres trong beta; coordinator
+        recovery có thể requeue/expire theo policy.</li>
+      <li>AI-Trader snapshot/feed nằm SQLite volume; API/refresh process tách nhau
+        nhưng dùng cùng data volume.</li>
+      <li>Backend checkpoint/workflow ở Postgres; browser có active run/replay cursor.</li>
+    </ul>
+    <h3>Troubleshooting theo triệu chứng</h3>
+    <table>
+      <thead><tr><th>Triệu chứng</th><th>Kiểm tra hẹp nhất</th><th>Bước kế tiếp</th></tr></thead>
+      <tbody>
+        <tr><td>UI “Backend ngoại tuyến”</td><td><code>/api/ok</code>, backend process/log, port/proxy.</td><td>Kiểm tra migration/Postgres nếu backend không ready.</td></tr>
+        <tr><td>Graph chỉ có supervisor</td><td><code>GET /v1/topology</code> và auth.</td><td>Kiểm tra registry/startup validation; không hardcode frontend.</td></tr>
+        <tr><td>Dataset build dừng ở staging</td><td>Workflow transition/error code; quant-data readiness.</td><td>Phân biệt invalid data và worker timeout.</td></tr>
+        <tr><td>Experiment pending lâu</td><td>Job status, progress stage, active limit/TTL.</td><td>Không submit ID mới; poll cùng experiment ID.</td></tr>
+        <tr><td>Artifact 410</td><td>Storage status/retention.</td><td>Dùng metadata/tombstone; bytes đã hết hạn không được giả lập.</td></tr>
+        <tr><td>Publish bị 409</td><td>Idempotency key/action digest.</td><td>Không reuse key cho content khác.</td></tr>
+        <tr><td>Memory không thay đổi</td><td>Approval status, changed flag, key normalization.</td><td>Cùng content có thể reuse/no-op hợp lệ.</td></tr>
+      </tbody>
+    </table>
+    <h3>Điều chưa có</h3>
+    <p>Baseline không tuyên bố centralized dashboard, formal alert rules, SLO,
+      distributed tracing certification hay off-host recovery. Product events,
+      structured logs, probe và deterministic tests là evidence hiện có; operator
+      phải giữ claim đúng với phạm vi đó.</p>
+  </section>
+
+  <section class="chapter" id="chuong-17">
+    <span class="eyebrow">Từ unit đến product acceptance</span>
+    <h2>Kiểm thử và quality gate</h2>
+    <h3>Local quality commands</h3>
+    <pre># Architecture + backend
+uv run --project backend python scripts/check-architecture.py
+uv run --project backend python -m unittest discover -s backend/tests
+uv run --project backend python -m compileall backend/source
+
+# Workers
+uv run --project quant-worker python -m unittest discover -s quant-worker/tests
+uv run --project quant-data-worker python -m unittest discover -s quant-data-worker/tests
+uv run --project ai-trader-worker python -m unittest discover -s ai-trader-worker/tests
+
+# Frontend
+npm --prefix frontend test
+npm --prefix frontend run build
+npm --prefix frontend run test:e2e
+
+# Product validation + security
+uv run --project backend python scripts/run-product-validation.py +  --output data/evaluation/product-validation-v1.json
+./scripts/security-audit.sh</pre>
+    <h3>Mỗi lớp chứng minh gì?</h3>
+    <table>
+      <thead><tr><th>Lớp</th><th>Phạm vi chứng minh</th><th>Không tự chứng minh</th></tr></thead>
+      <tbody>
+        <tr><td>Architecture check</td><td>Import boundary, registry/runtime exposure và policy drift.</td><td>Behavior của provider thật.</td></tr>
+        <tr><td>Backend unit</td><td>Auth, contract, workflow, approval, repositories qua doubles.</td><td>Postgres durability thực nếu không chạy integration.</td></tr>
+        <tr><td>Worker unit</td><td>Validation, identity, job/artifact/service behavior.</td><td>Paid/live provider availability.</td></tr>
+        <tr><td>Postgres integration</td><td>Migration, transaction, role/control state và recovery với DB thật.</td><td>Browser UX.</td></tr>
+        <tr><td>Frontend unit</td><td>Parser, reducer, replay, graph derivation, safe links.</td><td>Backend đang chạy thật.</td></tr>
+        <tr><td>Playwright E2E</td><td>Production browser flow và accessibility/security behavior đã mô phỏng.</td><td>Model quality hay provider quota.</td></tr>
+        <tr><td>Container smoke</td><td>Image import/start surface và không chứa build tool.</td><td>Full operational readiness.</td></tr>
+        <tr><td>Product validation</td><td>Versioned offline deterministic scenarios.</td><td>Capacity, live market, model answer quality.</td></tr>
+        <tr><td>Security gate</td><td>Secret/static/dependency/image vulnerability policy.</td><td>Formal penetration test.</td></tr>
+      </tbody>
+    </table>
+    <h3>Deterministic product-validation suite</h3>
+    <p>Manifest <code>evaluation/product-validation-v1.json</code> liệt kê scenario.
+      Scenario gắn tag <code>acceptance_failure</code> sẽ làm command fail. Report
+      ghi status từng scenario, workflow completion và categorized failure rate.
+      Suite offline, không gọi paid API/model.</p>
+    <h4>Nhóm scenario</h4>
+    <ul>
+      <li>Workflow ordering, validation, structured contract và fail-closed tools.</li>
+      <li>Idempotency khi duplicate, reconnect, cancellation, worker restart.</li>
+      <li>Tenant isolation, manifest/artifact integrity, safe evidence references.</li>
+      <li>Point-in-time limitation và Alpha158 lookahead boundary.</li>
+      <li>Browser replay/resume và unsafe rendered links.</li>
+      <li>AI-Trader empty-provider semantics và input safety.</li>
+    </ul>
+    <h3>CI quality workflow</h3>
+    <p>Push vào <code>main</code> và pull request kích hoạt các job backend,
+      frontend, workers matrix, PostgreSQL integration, container build/smoke/
+      vulnerability, product validation và một aggregate job bắt buộc mọi nhánh
+      đều success. Security workflow chạy thêm theo lịch hàng tuần.</p>
+    <h3>Nguyên tắc đọc “green”</h3>
+    <div class="callout warn"><strong>Green có phạm vi:</strong> nó chứng minh code
+      hiện tại qua scenario/dependency pinned đã chạy. Nó không chứng minh provider
+      đang online ngày mai, model luôn trả lời hay, node chịu được mọi tải, hoặc
+      dữ liệu tài chính không còn bias.</div>
+    <h3>Live beta journey vẫn cần</h3>
+    <ol>
+      <li>Nghiên cứu có nguồn.</li>
+      <li>Tạo dataset bằng provider thật.</li>
+      <li>Chạy experiment và xem Evidence.</li>
+      <li>Approval → interrupt → resume.</li>
+      <li>Reload/reconnect giữa run.</li>
+      <li>Download/export evidence và kiểm tra actor isolation.</li>
+    </ol>
+  </section>
+
+  <section class="chapter" id="chuong-18">
+    <span class="eyebrow">Học bằng tình huống</span>
+    <h2>Ví dụ end-to-end dễ hiểu</h2>
+    <h3>Ví dụ 1 — Từ câu hỏi đến Qlib experiment</h3>
+    <div class="callout good"><strong>Mục tiêu:</strong> tạo baseline đơn giản cho
+      AAPL/MSFT bằng dữ liệu 2022–2024, rồi xem kết quả 2024.</div>
+    <table>
+      <thead><tr><th>Bước</th><th>Người dùng/agent</th><th>Hệ thống thực hiện</th><th>Bằng chứng sinh ra</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>“Tạo dataset AAPL, MSFT...”</td><td>Supervisor delegate quant-data-agent.</td><td><code>agent.delegated</code>, typed task.</td></tr>
+        <tr><td>2</td><td>Quant Data gọi composite tool.</td><td>Normalize, fingerprint, fetch OpenBB.</td><td>staging revision + content hash.</td></tr>
+        <tr><td>3</td><td>Không cần model can thiệp.</td><td>Validate schema/OHLC và build Qlib layout.</td><td>quality checks, dataset revision, manifest.</td></tr>
+        <tr><td>4</td><td>Supervisor chuyển ID cho Quant Researcher.</td><td>Không đoán alias thành revision.</td><td>typed dataset reference.</td></tr>
+        <tr><td>5</td><td>Chọn <code>linear</code> baseline.</td><td>Validate segments và max_test_end; submit durable job.</td><td>workflow ID + experiment ID.</td></tr>
+        <tr><td>6</td><td>Agent poll cùng ID.</td><td>Worker lease/run Qlib; publish metric/artifact.</td><td>attempt, result, artifact hashes.</td></tr>
+        <tr><td>7</td><td>Agent giải thích limitation.</td><td>Record interpretation với exact evidence IDs.</td><td>interpretation report + lineage.</td></tr>
+        <tr><td>8</td><td>Người dùng mở Evidence.</td><td>Backend dựng dossier actor-scoped.</td><td>UI/export bundle.</td></tr>
+      </tbody>
+    </table>
+    <h4>Kết luận mẫu đúng</h4>
+    <pre>"Experiment exp_v1_… đã completed trên dataset dsr_v1_….
+IC/return là kết quả lịch sử theo cấu hình đã ghi trong dossier.
+Dataset là research_only vì point-in-time membership và provider revision
+không được chứng minh; đây không phải lời khuyên đầu tư."</pre>
+    <h4>Kết luận mẫu sai</h4>
+    <pre>"Model này chắc chắn sẽ lời 12% năm tới."
+# Sai vì biến backtest thành dự báo/cam kết và bỏ qua limitations.</pre>
+
+    <h3>Ví dụ 2 — Chỉ nghiên cứu khái niệm, không chạy dữ liệu</h3>
+    <p><b>Prompt:</b> “IC và Rank IC khác nhau thế nào? Hãy dẫn nguồn hiện hành.”</p>
+    <div class="flow diagram">
+      <div class="box blue"><strong>Supervisor</strong><small>nhận diện research-only</small></div>
+      <div class="arrow">→</div>
+      <div class="box pink"><strong>Researcher</strong><small>search nhiều góc + nguồn</small></div>
+      <div class="arrow">→</div>
+      <div class="box green"><strong>ResearchHandoff</strong><small>claims, sources, gaps</small></div>
+      <div class="arrow">→</div>
+      <div class="box"><strong>Final answer</strong><small>không tạo dataset/job</small></div>
+    </div>
+    <p>Đúng routing vì người dùng chỉ cần lý thuyết có nguồn. Quant worker không
+      được gọi “cho chắc”; việc tạo job thừa vừa tốn tài nguyên vừa sai scope.</p>
+
+    <h3>Ví dụ 3 — Lưu preference có approval</h3>
+    <p><b>Prompt:</b> “Hãy nhớ từ nay trả lời tôi bằng tiếng Việt.”</p>
+    <ol>
+      <li>Supervisor đề xuất <code>save_user_memory(preference.language, ...)</code>.</li>
+      <li>Middleware ghi pending approval và frontend hiện exact action.</li>
+      <li>Người dùng bấm Approve.</li>
+      <li>Graph resume; repository upsert đúng key, tăng revision nếu thay đổi.</li>
+      <li><code>memory.updated</code> chỉ chứa key/revision/hash, không raw content.</li>
+      <li>Lượt sau middleware inject aggregate như untrusted user context.</li>
+    </ol>
+    <div class="callout warn"><strong>Nếu bấm Reject:</strong> supervisor phải báo
+      không lưu và không đề xuất lại cùng side effect để “thử sửa”.</div>
+
+    <h3>Ví dụ 4 — Publish strategy lên AI-Trader</h3>
+    <p><b>Prompt:</b> “Đăng kết quả experiment vừa rồi thành strategy discussion.”</p>
+    <ol>
+      <li>AI-Trader agent nhận experiment/artifact/interpretation IDs thật.</li>
+      <li>Nội dung gồm market/symbol, research basis, leakage/survivorship/cost/OOS
+        limitation và câu “không phải lời khuyên đầu tư”.</li>
+      <li>Frontend hiện exact title/content/evidence cho người dùng duyệt.</li>
+      <li>Approval digest khóa đúng nội dung. Sau approve, publication service
+        reserve idempotency và gọi worker.</li>
+      <li>Postgres ghi target <code>signal_id</code>; dossier nối publication với
+        approval và evidence.</li>
+    </ol>
+    <div class="callout danger"><strong>Không được:</strong> thay title/content sau
+      approve; publish “operation” realtime; hoặc publish khi actor chỉ có
+      <code>ai_trader:read</code>.</div>
+
+    <h3>Ví dụ 5 — Mất mạng giữa run</h3>
+    <ol>
+      <li>Browser đã lưu thread ID, active run ID và last event ID trong session.</li>
+      <li>Mạng rớt sau khi worker accepted nhưng trước khi UI thấy <code>dataset.ready</code>.</li>
+      <li>Sau reload, frontend reconnect active run stream nếu còn khả dụng.</li>
+      <li>Frontend gọi product-event replay với <code>after=last_sequence</code>.</li>
+      <li>Workflow/idempotency ở Postgres ngăn submit side effect mới.</li>
+      <li>Nếu retention đã mất đoạn cũ, <code>gap=true</code> buộc UI không tuyên
+        bố timeline hoàn chỉnh.</li>
+    </ol>
+
+    <h3>Ví dụ 6 — Provider không có snapshot</h3>
+    <p>AI-Trader market-news trả <code>ok=true</code>,
+      <code>available=false</code>, <code>last_updated_at=null</code>. Câu trả lời
+      đúng là “worker đã kết nối nhưng chưa có cached snapshot; cần refresh và API
+      key nếu muốn lấy dữ liệu mới”. Không nói “AI_TRADER_API_BASE_URL sai”.</p>
+  </section>
+
+  <section class="chapter" id="chuong-19">
+    <span class="eyebrow">Bắt đầu sửa ở đúng boundary</span>
+    <h2>Hướng dẫn đọc và thay đổi source</h2>
+    <h3>Trace một chat request</h3>
+    <div class="filetree">frontend/src/hooks/useChat.ts
+  → frontend/src/api/chat.ts + chatProtocol.ts
+  → backend/langgraph.json
+  → backend/source/agents/agent.py
+  → backend/source/bootstrap.py
+  → backend/source/agents/factory.py
+  → backend/source/agents/sub_agents/*
+  → backend/source/tools/*
+  → backend/source/application/*
+  → backend/source/integrations/*
+  → worker/worker/app.py
+  → worker/worker/application/*
+  → repository / artifact store / PostgreSQL</div>
+    <h3>Chọn đúng nơi sửa</h3>
+    <table>
+      <thead><tr><th>Muốn thay đổi</th><th>Owner chính</th><th>Consumer phải kiểm tra</th></tr></thead>
+      <tbody>
+        <tr><td>Agent/task/tool topology</td><td><code>.deepagents/nexus.json</code>, prompt/skill, subagent module.</td><td>Registry validator, frontend topology/graph, docs overview.</td></tr>
+        <tr><td>Supervisor behavior</td><td><code>agents/factory.py</code> và middleware.</td><td>Handoff/approval/memory tests.</td></tr>
+        <tr><td>Quant business flow</td><td><code>application/quant_workflows.py</code>.</td><td>Tool adapter, worker contract, workflow repository/events.</td></tr>
+        <tr><td>Worker HTTP contract</td><td><code>worker/app.py</code> + models.</td><td>Backend integration client và tests ở hai đầu.</td></tr>
+        <tr><td>Domain state</td><td><code>domain/</code> + <code>infrastructure/</code> + migration.</td><td>Dossier, events, worker roles, Postgres integration.</td></tr>
+        <tr><td>Frontend stream</td><td><code>api/</code>, <code>useChat</code>, reducer.</td><td>Abort, stale guard, replay và protocol tests.</td></tr>
+        <tr><td>Evidence UI/API</td><td><code>lineage_repository.py</code>, <code>http_app.py</code>, <code>DossierPage.jsx</code>.</td><td>Actor scope, export/hash, safe URL/download.</td></tr>
+        <tr><td>Production profile</td><td>Dockerfiles, Compose overlay, config validator.</td><td>Architecture/security/image smoke docs.</td></tr>
+      </tbody>
+    </table>
+    <h3>Checklist cho một thay đổi cross-layer</h3>
+    <ol>
+      <li>Đọc <code>AGENTS.md</code> gần file nhất và docs architecture.</li>
+      <li>Trace contract hai đầu trước khi sửa.</li>
+      <li>Xác định authority: model, application, DB hay worker nào được quyết định?</li>
+      <li>Giữ input validation ở boundary và error explicit.</li>
+      <li>Giữ async lifecycle, abort/stale guard và immutable React update.</li>
+      <li>Nếu có side effect, thiết kế approval/idempotency/retry trước happy path.</li>
+      <li>Thêm focused test tại lớp chịu trách nhiệm.</li>
+      <li>Chạy narrow test, rồi gate liên quan.</li>
+      <li>Cập nhật <code>docs/architecture/overview.md</code> nếu entrypoint,
+        ownership hoặc runtime flow đổi.</li>
+      <li>Review diff, không stage file runtime/secret/unrelated.</li>
+    </ol>
+    <h3>Ví dụ: thêm một model Qlib mới</h3>
+    <p>Đây không phải chỉ sửa một dropdown. Cần xem xét:</p>
+    <ul>
+      <li>Intent/worker Pydantic allowlist.</li>
+      <li>Qlib runner implementation và dependency lock.</li>
+      <li>Agent prompt/skill hướng dẫn khi nào được chọn.</li>
+      <li>Structured output/config evidence.</li>
+      <li>Unit + worker execution test + product scenario nếu là acceptance signal.</li>
+      <li>Container size/vulnerability/runtime duration.</li>
+      <li>Documentation workflow và PDF nếu phạm vi hỗ trợ thay đổi.</li>
+    </ul>
+    <h3>Ví dụ: thêm agent mới</h3>
+    <p>Cần đồng bộ prompt file, skill file nếu có, <code>nexus.json</code>, Python
+      subagent loader, tool/permission/budget, handoff schema, development graph,
+      production exposure policy, topology-safe projection, frontend node/edge và
+      architecture docs. Startup validator nên fail nếu một mặt bị bỏ sót.</p>
+    <div class="callout"><strong>Nguyên tắc:</strong> thay đổi nhỏ nhất nhưng phải
+      coherent xuyên boundary. “Chỉ sửa chỗ compile” không đủ nếu consumer contract
+      còn hiểu shape cũ.</div>
+  </section>
+
+  <section class="chapter" id="chuong-20">
+    <span class="eyebrow">Claim đúng hôm nay, hướng đi ngày mai</span>
+    <h2>Giới hạn hiện tại và hướng mở rộng</h2>
+    <h3>Giới hạn sản phẩm</h3>
+    <table>
+      <thead><tr><th>Giới hạn</th><th>Tại sao quan trọng</th><th>Tín hiệu nên có trước khi mở rộng</th></tr></thead>
+      <tbody>
+        <tr><td>Một node</td><td>Node/volume failure ảnh hưởng artifact và service.</td><td>Beta cho thấy nhu cầu HA/scale hoặc downtime không chấp nhận.</td></tr>
+        <tr><td>Filesystem artifact</td><td>Không có off-host durability/replication.</td><td>Artifact volume, retention hoặc recovery demand đo được.</td></tr>
+        <tr><td>Provider yfinance</td><td>Point-in-time, revision, delisting/corporate action yếu.</td><td>Use case yêu cầu production research và vendor evidence tốt hơn.</td></tr>
+        <tr><td>Daily + Alpha158</td><td>Không bao phủ intraday/feature families khác.</td><td>Representative users chứng minh nhu cầu cụ thể.</td></tr>
+        <tr><td>Bốn model + một strategy</td><td>Giảm linh hoạt nhưng tăng khả năng kiểm soát.</td><td>Comparison evidence và resource profile cho model/strategy mới.</td></tr>
+        <tr><td>Cached AI market intel</td><td>Freshness phụ thuộc refresh/quota.</td><td>Nhu cầu latency/freshness rõ và provider budget.</td></tr>
+        <tr><td>Không formal SLO</td><td>Không có claim uptime/latency định lượng.</td><td>Traffic beta, error budget và operator ownership.</td></tr>
+      </tbody>
+    </table>
+    <h3>Thứ tự mở rộng hợp lý</h3>
+    <div class="numbered">
+      <div><span class="num">1</span><div>Chạy representative private-beta journeys,
+        đo friction/failure thay vì đoán.</div></div>
+      <div><span class="num">2</span><div>Biến failure thành minimal reproducible
+        scenario và focused regression test.</div></div>
+      <div><span class="num">3</span><div>Chỉ nâng scenario thành product acceptance
+        manifest khi nó là durable signal.</div></div>
+      <div><span class="num">4</span><div>Từ evidence thực quyết định remote storage,
+        multi-node, SLO, capacity hay release provenance.</div></div>
+    </div>
+    <h3>Những invariant nên giữ khi mở rộng</h3>
+    <ul>
+      <li>Model chỉ diễn đạt ý định; trusted code sở hữu effectful workflow.</li>
+      <li>Identity/version/hash phải đi xuyên hệ thống, không reconstruct từ prose.</li>
+      <li>Actor scope tại mọi boundary và query.</li>
+      <li>Approval ràng buộc exact action; retry không nhân đôi side effect.</li>
+      <li>Evidence gap được thể hiện, không bị che bởi UI “đẹp”.</li>
+      <li>Production fail closed khi security setting thiếu/yếu.</li>
+      <li>Docs claim không vượt quá executable evidence.</li>
+    </ul>
+    <div class="callout good"><strong>Một câu tóm tắt:</strong> Nexus Agent hiện là
+      một hệ thống nghiên cứu có governance và evidence cho local/private beta một
+      node; giá trị lớn nhất của nó không phải “nhiều agent”, mà là việc nối ý định
+      của người dùng với effect có kiểm soát và bằng chứng có thể truy vết.</div>
+  </section>
+
+  <section class="chapter" id="phu-luc-a">
+    <span class="eyebrow">Tra cứu nhanh</span>
+    <h2>Phụ lục A — Danh mục API</h2>
+    <h3>LangGraph routes frontend sử dụng</h3>
+    <table>
+      <thead><tr><th>Method/path (qua <code>/api</code>)</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /ok</code></td><td>Backend liveness cho browser/health check.</td></tr>
+        <tr><td><code>POST /threads</code></td><td>Tạo actor-owned conversation thread.</td></tr>
+        <tr><td><code>GET /threads/{thread_id}/state</code></td><td>Lấy graph state để resume/recover.</td></tr>
+        <tr><td><code>DELETE /threads/{thread_id}</code></td><td>Xóa thread của actor.</td></tr>
+        <tr><td><code>POST /threads/{thread_id}/runs/stream</code></td><td>Tạo run và stream nhiều event mode.</td></tr>
+        <tr><td><code>GET /threads/{thread_id}/runs/{run_id}/stream</code></td><td>Nối lại active run stream.</td></tr>
+        <tr><td><code>POST /threads/{thread_id}/runs/{run_id}/cancel</code></td><td>Yêu cầu hủy run.</td></tr>
+      </tbody>
+    </table>
+    <h3>Nexus product API</h3>
+    <table>
+      <thead><tr><th>Method/path</th><th>Permission</th><th>Kết quả</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /v1/runs/{run_id}/events</code></td><td><code>chat:run</code></td><td>Replay page sau sequence; limit 1–500.</td></tr>
+        <tr><td><code>GET /v1/topology</code></td><td><code>chat:run</code></td><td>Frontend-safe agent/skill/tool labels.</td></tr>
+        <tr><td><code>GET /v1/memory</code></td><td><code>chat:run</code></td><td>Aggregate content, revision, updated time; no-store.</td></tr>
+        <tr><td><code>DELETE /v1/memory</code></td><td><code>chat:run</code></td><td>Direct explicit deletion; 204.</td></tr>
+        <tr><td><code>GET /v1/operations/readiness</code></td><td><code>maintenance:run</code></td><td>Database operational readiness.</td></tr>
+        <tr><td><code>GET /v1/lineage/{node_id}</code></td><td><code>quant:read</code></td><td>Backward/forward/both graph; depth 1–8.</td></tr>
+        <tr><td><code>GET /v1/experiments/{id}/dossier</code></td><td><code>quant:read</code></td><td>Actor-scoped evidence dossier.</td></tr>
+        <tr><td><code>GET /v1/experiments/compare</code></td><td><code>quant:read</code></td><td>So sánh 2–5 experiment ID.</td></tr>
+        <tr><td><code>GET /v1/experiments/{id}/export</code></td><td><code>quant:read</code></td><td>JSON bundle + content-hash header.</td></tr>
+        <tr><td><code>GET /v1/artifacts/{id}/content</code></td><td><code>quant:read</code></td><td>Verified bounded artifact proxy.</td></tr>
+      </tbody>
+    </table>
+    <h3>Quant-data worker — internal</h3>
+    <table>
+      <thead><tr><th>Method/path</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /health</code>, <code>GET /ready</code></td><td>Process và dependency readiness.</td></tr>
+        <tr><td><code>POST /v1/openbb/ohlcv</code></td><td>Fetch/normalize/save OHLCV staging revision.</td></tr>
+        <tr><td><code>POST /v1/factors/snapshot</code></td><td>Fetch current factor snapshot revision.</td></tr>
+        <tr><td><code>POST /v1/staging/{id}/validate</code></td><td>Deterministic market-data quality checks.</td></tr>
+        <tr><td><code>POST /v1/qlib-datasets</code></td><td>Build immutable Qlib dataset.</td></tr>
+        <tr><td><code>POST /v1/qlib-datasets/{id}/validate</code></td><td>Validate layout/manifest/coverage.</td></tr>
+      </tbody>
+    </table>
+    <h3>Quant worker — internal</h3>
+    <table>
+      <thead><tr><th>Method/path</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /health</code>, <code>GET /ready</code></td><td>Process/dependency readiness.</td></tr>
+        <tr><td><code>GET /v1/datasets</code></td><td>Liệt kê dataset metadata/coverage.</td></tr>
+        <tr><td><code>POST /v1/datasets/{id}/validate?universe=…</code></td><td>Preflight dataset + universe.</td></tr>
+        <tr><td><code>POST /v1/experiments</code></td><td>Accept durable job, trả 202.</td></tr>
+        <tr><td><code>GET /v1/experiments/{id}/result</code></td><td>Poll status/result.</td></tr>
+        <tr><td><code>POST /v1/experiments/{id}/cancel</code></td><td>Cancel với reason category.</td></tr>
+        <tr><td><code>GET /v1/artifacts/{id}</code></td><td>Artifact manifest.</td></tr>
+        <tr><td><code>GET /v1/artifacts/{id}/content</code></td><td>Artifact bytes + content hash.</td></tr>
+      </tbody>
+    </table>
+    <h3>AI-Trader worker — internal</h3>
+    <table>
+      <thead><tr><th>Method/path</th><th>Token?</th><th>Vai trò</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /health</code></td><td>Không</td><td>Process health.</td></tr>
+        <tr><td><code>GET /ready</code></td><td>Có</td><td>Protected readiness.</td></tr>
+        <tr><td><code>GET /api/market-intel/overview</code></td><td>Không</td><td>Overview snapshot.</td></tr>
+        <tr><td><code>GET /api/market-intel/news</code></td><td>Không</td><td>Category/symbol-filtered snapshot.</td></tr>
+        <tr><td><code>POST /api/market-intel/refresh</code></td><td>Có</td><td>Manual provider refresh.</td></tr>
+        <tr><td><code>GET /api/signals/feed</code></td><td>Không</td><td>Read Nexus signal feed.</td></tr>
+        <tr><td><code>POST /api/signals/strategy</code></td><td>Có</td><td>Idempotent strategy publish.</td></tr>
+        <tr><td><code>POST /api/signals/discussion</code></td><td>Có</td><td>Idempotent discussion publish.</td></tr>
+        <tr><td><code>POST /api/claw/agents/heartbeat</code></td><td>Có</td><td>Explicit protected poll.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="chapter" id="phu-luc-b">
+    <span class="eyebrow">Tra cứu cấu hình, không chứa giá trị bí mật</span>
+    <h2>Phụ lục B — Cấu hình quan trọng</h2>
+    <table>
+      <thead><tr><th>Nhóm</th><th>Biến tiêu biểu</th><th>Ý nghĩa</th></tr></thead>
+      <tbody>
+        <tr><td>Environment/model</td><td><code>NEXUS_ENV</code>, <code>MODEL</code>, model/search credentials</td><td>Profile và provider model/tool.</td></tr>
+        <tr><td>OIDC</td><td>issuer, audience, JWKS URI, roles claim, allowed algorithms</td><td>Token verification và role mapping.</td></tr>
+        <tr><td>Actor/worker security</td><td>tenant HMAC key, quant token riêng theo service, AI-Trader token</td><td>Pseudonymous identity và internal auth.</td></tr>
+        <tr><td>Checkpoint</td><td>AES key, strict msgpack/content keys</td><td>Safe serialization và encryption.</td></tr>
+        <tr><td>PostgreSQL</td><td>host, port, user, password, database, pool min/max</td><td>Backend pool; beta có URL/role riêng theo service.</td></tr>
+        <tr><td>Worker URLs</td><td>quant worker, quant-data worker, AI-Trader base URL</td><td>Backend integration targets.</td></tr>
+        <tr><td>Timeout/poll</td><td>worker timeout, poll seconds, wait seconds</td><td>Transport và bounded poll behavior.</td></tr>
+        <tr><td>Input/retention</td><td>prompt max bytes, replay retention/poll, approval TTL, download max</td><td>Abuse/resource bounds.</td></tr>
+        <tr><td>Quant execution</td><td>active job limit, queued TTL, max execution, storage quota, artifact retention</td><td>Admission/recovery/resource policy.</td></tr>
+        <tr><td>Data paths</td><td>Nexus data, Qlib, staging, artifact, AI SQLite path</td><td>Runtime storage placement.</td></tr>
+        <tr><td>AI market refresh</td><td>provider key/base URL, lookback, limit, categories, interval, stale-after</td><td>Snapshot cadence và freshness.</td></tr>
+        <tr><td>Frontend runtime</td><td>OIDC authority/client/audience/scope/redirect</td><td>Browser Authorization Code flow.</td></tr>
+        <tr><td>Logging</td><td>log level, log format, log directory</td><td>Structured local/production observability.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout danger"><strong>Quy tắc:</strong> chỉ tra tên biến/placeholder
+      trong <code>.env.example</code> và Compose. Không in, đọc, ghi vào PDF hay
+      commit giá trị từ <code>.env</code> thật.</div>
+  </section>
+
+  <section class="chapter" id="phu-luc-c">
+    <span class="eyebrow">Từ điển ngắn</span>
+    <h2>Phụ lục C — Glossary</h2>
+    <table>
+      <thead><tr><th>Thuật ngữ</th><th>Giải thích trong Nexus</th></tr></thead>
+      <tbody>
+        <tr><td>Actor</td><td>Người dùng đã xác thực, biểu diễn bằng pseudonymous HMAC key.</td></tr>
+        <tr><td>Agent / subagent</td><td>Model-driven role có tool/skill/scope; supervisor điều phối subagent.</td></tr>
+        <tr><td>Tool</td><td>Hàm được model gọi; tool cấp cao chuyển ý định sang trusted application code.</td></tr>
+        <tr><td>Skill</td><td>Hướng dẫn workflow chuyên môn cho agent; không tự là security boundary.</td></tr>
+        <tr><td>Graph</td><td>LangGraph runtime entrypoint quản lý model/tool/middleware/checkpoint.</td></tr>
+        <tr><td>Thread</td><td>Conversation container actor-owned.</td></tr>
+        <tr><td>Run</td><td>Một lần graph thực thi trong thread.</td></tr>
+        <tr><td>Interrupt/resume</td><td>Dừng graph tại approval và tiếp tục với quyết định của người dùng.</td></tr>
+        <tr><td>Checkpoint</td><td>State graph bền vững để resume/recover.</td></tr>
+        <tr><td>Workflow</td><td>Chuỗi nghiệp vụ xác định, versioned và durable ngoài prose của model.</td></tr>
+        <tr><td>Idempotency</td><td>Gửi lại cùng hành động không tạo effect thứ hai; khác args cùng key là conflict.</td></tr>
+        <tr><td>Fingerprint</td><td>Hash canonical của request parameters.</td></tr>
+        <tr><td>Content hash</td><td>SHA-256 identity của canonical content/bytes.</td></tr>
+        <tr><td>Revision</td><td>Phiên bản dữ liệu bất biến; revision mới không sửa revision cũ.</td></tr>
+        <tr><td>Manifest</td><td>Danh sách/metadata file canonical và hash dùng xác minh dataset/artifact.</td></tr>
+        <tr><td>Lineage</td><td>Đồ thị quan hệ giữa request/source/data/experiment/metric/artifact/claim.</td></tr>
+        <tr><td>Dossier</td><td>Hồ sơ evidence hợp nhất của một experiment.</td></tr>
+        <tr><td>Transactional outbox</td><td>Ghi event intent cùng domain transaction, project sang replay sau.</td></tr>
+        <tr><td>Point-in-time</td><td>Dữ liệu phản ánh đúng thứ đã biết ở thời điểm lịch sử; baseline provider chưa chứng minh.</td></tr>
+        <tr><td>Survivorship bias</td><td>Thiên lệch khi universe chỉ gồm tài sản còn tồn tại/được biết hiện tại.</td></tr>
+        <tr><td>Lookahead leakage</td><td>Dùng thông tin tương lai khi train/test; Alpha158 label cần chừa hai ngày.</td></tr>
+        <tr><td>OHLCV</td><td>Open, High, Low, Close, Volume.</td></tr>
+        <tr><td>Alpha158</td><td>Feature/label handler Qlib được allowlist trong MVP.</td></tr>
+        <tr><td>TopkDropoutStrategy</td><td>Strategy chọn top K và thay một số vị trí theo signal.</td></tr>
+        <tr><td>Evidence gap</td><td>Phần bằng chứng thiếu/yếu được biểu diễn rõ thay vì che giấu.</td></tr>
+        <tr><td>Fail closed</td><td>Khi không xác minh được thì từ chối/giảm quyền, không đoán là an toàn.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="chapter" id="phu-luc-d">
+    <span class="eyebrow">Checklist thực hành</span>
+    <h2>Phụ lục D — Checklist vận hành</h2>
+    <h3>Trước khi chạy local</h3>
+    <ul class="checklist">
+      <li>Đúng Python 3.11, Node 22, uv/npm và Postgres 16.</li>
+      <li>Tạo file local từ <code>.env.example</code>; không commit.</li>
+      <li>Cài extra Qlib/OpenBB nếu cần provider/experiment thật.</li>
+      <li>Kiểm tra port không bị stack cũ chiếm.</li>
+      <li>Chạy migration status/upgrade.</li>
+    </ul>
+    <h3>Trước khi chạy private beta</h3>
+    <ul class="checklist">
+      <li>OIDC issuer/audience/client/redirect đúng HTTPS.</li>
+      <li>Database password non-default và role riêng từng service.</li>
+      <li>Tenant HMAC, worker token, AI-Trader token và AES key đủ mạnh.</li>
+      <li>Chỉ frontend bind loopback/trusted ingress; worker không public.</li>
+      <li>Named volumes có ownership/backup policy phù hợp với claim một node.</li>
+      <li>Quality, security, container vulnerability và product validation đều green.</li>
+      <li>Chạy live journey gồm approval, reconnect, Evidence và actor isolation.</li>
+    </ul>
+    <h3>Khi đánh giá một kết quả quant</h3>
+    <ul class="checklist">
+      <li>Dataset revision và manifest verified?</li>
+      <li>Train/valid/test đúng thứ tự và nằm trong coverage/max_test_end?</li>
+      <li>Metric có definition/calculation version/evidence reference?</li>
+      <li>Artifact hash/status/download eligibility hợp lệ?</li>
+      <li>Point-in-time, survivorship, adjustment, calendar, cost và OOS limitation đã nêu?</li>
+      <li>Interpretation có phân biệt historical evidence và investment advice?</li>
+    </ul>
+    <h3>Khi xử lý một side effect</h3>
+    <ul class="checklist">
+      <li>Actor có permission?</li>
+      <li>Exact arguments đã normalize và hiện cho người dùng?</li>
+      <li>Approval còn hiệu lực và action digest khớp?</li>
+      <li>Idempotency key có gắn đúng action, không reuse cho content khác?</li>
+      <li>Execution result/reference đã ghi; failure có safe code/stage/retryable?</li>
+    </ul>
+    <h3>Khi cập nhật tài liệu PDF này</h3>
+    <ol>
+      <li>Đổi source baseline/date trên trang bìa.</li>
+      <li>Đối chiếu entrypoint, topology, route, permission, state machine và config.</li>
+      <li>Cập nhật HTML, tạo lại PDF bằng lệnh trong <code>docs/pdf/README.md</code>.</li>
+      <li>Kiểm tra PDF mở được, font tiếng Việt, mục lục/link, bảng không bị cắt.</li>
+      <li>Review diff và bảo đảm không có secret/runtime data.</li>
+    </ol>
+    <div class="callout good" style="margin-top:10mm">
+      <strong>Kết thúc:</strong> Nếu chỉ nhớ một điều, hãy nhớ rằng Nexus Agent
+      tách <em>lời nói của model</em> khỏi <em>quyền thực hiện hành động</em>.
+      Contract, workflow, approval, identity, persistence và evidence là những lớp
+      biến một demo nhiều agent thành một sản phẩm có thể kiểm tra.
+    </div>
+    <p class="signature">Nexus Agent — Toàn cảnh hệ thống · Tài liệu 1.1 ·
+      Source baseline <code>04aa3fe0302b</code> · 16/07/2026.</p>
+  </section>
+</body>
+</html>

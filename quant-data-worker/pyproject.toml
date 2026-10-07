@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexus-quant-data-worker"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "numpy>=1.24,<2",
+    "pandas>=1.5,<3",
+    "pydantic>=2,<3",
+    "psycopg[binary,pool]>=3.3.4,<4",
+    "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+openbb = [
+    "openbb>=4,<5",
+    "openbb-yfinance>=1,<2",
+]
+dev = [
+    "httpx>=0.28,<0.29",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["worker"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

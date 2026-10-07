@@ -1,0 +1,23 @@
+:root {
+  color: #17211d;
+  background: #f4f7f5;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  --surface: #ffffff;
+  --surface-soft: #f8faf9;
+  --ink: #17211d;
+  --muted: #61716a;
+  --line: #dce4df;
+  --line-strong: #c7d1cb;
+  --green: #147a4f;
+  --blue: #3478f6;
+  --amber: #c57b22;
+  --red: #d94b3d;
+  --violet: #7b61ff;
+  --sidebar: #111616;
+  --focus-ring: rgba(52, 120, 246, .28);
+  --overlay: rgba(9, 16, 13, .52);
+  --shadow-overlay: 0 30px 100px rgba(16, 28, 23, .32);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}

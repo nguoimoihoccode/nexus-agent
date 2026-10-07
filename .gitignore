@@ -1,0 +1,46 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+deploy/*.env
+!deploy/*.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Node / Vite
+node_modules/
+dist/
+playwright-report/
+test-results/
+
+# Local development state
+.codegraph/
+.langgraph_api/
+mlruns/
+quant-worker/.data/
+quant-data-worker/.data/
+quant-worker/data/
+quant-worker/home/
+quant-worker/catboost_info/
+/data/*
+!/data/README.md
+!/data/.gitkeep
+!/data/staging/
+/data/staging/*
+!/data/staging/.gitkeep
+!/data/qlib/
+/data/qlib/*
+!/data/qlib/.gitkeep
+!/data/artifacts/
+/data/artifacts/*
+!/data/artifacts/.gitkeep
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store

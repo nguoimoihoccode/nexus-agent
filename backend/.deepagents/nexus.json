@@ -1,0 +1,79 @@
+{
+  "skills": {
+    "research": {
+      "title": "Research Skill",
+      "tone": "pink",
+      "icon": "sparkles"
+    },
+    "quant-research": {
+      "title": "Quant Research Skill",
+      "tone": "lime",
+      "icon": "chart"
+    },
+    "quant-data": {
+      "title": "Quant Data Skill",
+      "tone": "blue",
+      "icon": "database"
+    },
+    "ai-trader": {
+      "title": "AI-Trader Skill",
+      "tone": "coral",
+      "icon": "broadcast"
+    }
+  },
+  "agents": {
+    "supervisor": {
+      "enabled": true,
+      "skills": [],
+      "tools": [
+        "save_user_memory",
+        "delete_user_memory"
+      ]
+    },
+    "researcher": {
+      "enabled": true,
+      "skills": [
+        "research"
+      ],
+      "tools": [
+        "web_search"
+      ]
+    },
+    "quant-data-agent": {
+      "enabled": true,
+      "skills": [
+        "quant-data"
+      ],
+      "tools": [
+        "prepare_qlib_dataset",
+        "fetch_factor_snapshot"
+      ]
+    },
+    "quant-researcher": {
+      "enabled": true,
+      "skills": [
+        "quant-research"
+      ],
+      "tools": [
+        "list_quant_datasets",
+        "run_governed_qlib_experiment",
+        "get_qlib_experiment_result",
+        "record_experiment_interpretation"
+      ]
+    },
+    "ai-trader-agent": {
+      "enabled": true,
+      "skills": [
+        "ai-trader"
+      ],
+      "tools": [
+        "get_ai_trader_market_overview",
+        "get_ai_trader_market_news",
+        "get_ai_trader_signal_feed",
+        "publish_ai_trader_strategy",
+        "publish_ai_trader_discussion",
+        "poll_ai_trader_heartbeat"
+      ]
+    }
+  }
+}

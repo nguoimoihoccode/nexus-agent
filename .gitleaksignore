@@ -1,0 +1,20 @@
+# Reviewed placeholder and baseline-hash false positives.
+1566778fe2fe420711f3de5e43647e413008859c:deploy/staging.env.example:generic-api-key:19
+1566778fe2fe420711f3de5e43647e413008859c:backend/tests/test_staging_preflight.py:generic-api-key:40
+97eece8fe7bd5a16aebfe7396b38119a727c708a:backend/tests/test_database_config.py:generic-api-key:67
+97eece8fe7bd5a16aebfe7396b38119a727c708a:backend/tests/test_database_config.py:generic-api-key:84
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:136
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:145
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:154
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:161
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:168
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:175
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:182
+3bbff71a220bb320a20d9ea64a729106d1adbd05:.secrets.baseline:generic-api-key:189
+c3dc6273c0ea292c867939cff68906546ec0faeb:ai-trader-worker/skills/ai4trade/SKILL.md:generic-api-key:119
+c3dc6273c0ea292c867939cff68906546ec0faeb:ai-trader-worker/skills/ai4trade/SKILL.md:generic-api-key:170
+04aa3fe0302bd3af54bdc77a4091dada48f589cd:backend/tests/test_database_config.py:generic-api-key:130
+# Reviewed deterministic unit-test encryption-key false positives.
+e2f1b1b9b3511946e64da1a3966d9d5a5edcdd99:backend/tests/test_database_config.py:generic-api-key:173
+e2f1b1b9b3511946e64da1a3966d9d5a5edcdd99:backend/tests/test_database_config.py:generic-api-key:194
+e2f1b1b9b3511946e64da1a3966d9d5a5edcdd99:backend/tests/test_database_config.py:generic-api-key:214

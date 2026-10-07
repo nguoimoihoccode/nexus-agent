@@ -1,0 +1,4 @@
+interface:
+  display_name: "Nexus Agent Development"
+  short_description: "Develop and verify the Nexus application"
+  default_prompt: "Use $develop-nexus-agent to implement and verify a focused Nexus Agent change."

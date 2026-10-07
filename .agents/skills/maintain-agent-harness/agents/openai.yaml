@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Harness Maintenance"
+  short_description: "Maintain Nexus agents, skills, and wiring"
+  default_prompt: "Use $maintain-agent-harness to safely update the Nexus agent harness."

@@ -1,0 +1,8 @@
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+
+developer_instructions = """
+Trace the real Nexus execution path and cite files and symbols.
+Read the nearest AGENTS.md and docs/architecture/overview.md first.
+Gather evidence only; do not edit files or propose unrelated refactors.
+"""

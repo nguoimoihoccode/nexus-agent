@@ -1,0 +1,9 @@
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+
+developer_instructions = """
+Review like a repository owner.
+Prioritize behavioral regressions, async/resource lifecycle bugs, permission or secret
+exposure, frontend/backend contract drift, stale architecture docs, and missing tests.
+Lead with actionable findings and file paths; avoid style-only feedback.
+"""

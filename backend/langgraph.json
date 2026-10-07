@@ -1,0 +1,30 @@
+{
+  "python_version": "3.11",
+  "dependencies": ["."],
+  "graphs": {
+    "supervisor": "./source/agents/agent.py:graph"
+  },
+  "auth": {
+    "path": "./source/security/auth.py:auth"
+  },
+  "checkpointer": {
+    "ttl": {
+      "strategy": "delete",
+      "sweep_interval_minutes": 60,
+      "default_ttl": 43200
+    },
+    "serde": {
+      "allowed_json_modules": [],
+      "pickle_fallback": false
+    }
+  },
+  "http": {
+    "app": "./source/http_app.py:app",
+    "enable_custom_route_auth": true,
+    "middleware_order": "auth_first",
+    "disable_mcp": true,
+    "disable_a2a": true,
+    "disable_webhooks": true
+  },
+  "env": ".env"
+}

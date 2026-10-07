@@ -1,0 +1,250 @@
+# Single-node private-beta hardening overlay.
+services:
+  postgres:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for beta}
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-nexus_agent}
+    ports: !reset []
+    user: postgres
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=16m,uid=70,gid=70,mode=0775
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-2g}
+    cpus: ${POSTGRES_CPU_LIMIT:-1.5}
+    pids_limit: ${POSTGRES_PIDS_LIMIT:-200}
+
+  domain-migrate:
+    build:
+      target: production
+    entrypoint: ["python", "-m", "source.infrastructure.migrations"]
+    command: ["bootstrap"]
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-nexus}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for beta}@postgres:5432/${POSTGRES_DB_NAME:-nexus_agent}?sslmode=disable
+      NEXUS_BACKEND_DB_USER: ${NEXUS_BACKEND_DB_USER:?NEXUS_BACKEND_DB_USER is required}
+      NEXUS_BACKEND_DB_PASSWORD: ${NEXUS_BACKEND_DB_PASSWORD:?NEXUS_BACKEND_DB_PASSWORD is required}
+      NEXUS_QUANT_DATA_DB_USER: ${NEXUS_QUANT_DATA_DB_USER:?NEXUS_QUANT_DATA_DB_USER is required}
+      NEXUS_QUANT_DATA_DB_PASSWORD: ${NEXUS_QUANT_DATA_DB_PASSWORD:?NEXUS_QUANT_DATA_DB_PASSWORD is required}
+      NEXUS_QUANT_WORKER_DB_USER: ${NEXUS_QUANT_WORKER_DB_USER:?NEXUS_QUANT_WORKER_DB_USER is required}
+      NEXUS_QUANT_WORKER_DB_PASSWORD: ${NEXUS_QUANT_WORKER_DB_PASSWORD:?NEXUS_QUANT_WORKER_DB_PASSWORD is required}
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:size=256m,uid=10001,gid=10001,mode=1777]
+    mem_limit: ${DOMAIN_MIGRATE_MEMORY_LIMIT:-512m}
+    cpus: ${DOMAIN_MIGRATE_CPU_LIMIT:-1.0}
+    pids_limit: ${DOMAIN_MIGRATE_PIDS_LIMIT:-128}
+
+  backend:
+    build:
+      target: production
+    env_file: !reset []
+    environment:
+      NEXUS_ENV: production
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY is required for beta}
+      MODEL: ${MODEL:-deepseek:deepseek-v4-flash}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      NEXUS_OIDC_ISSUER: ${NEXUS_OIDC_ISSUER:?NEXUS_OIDC_ISSUER is required for beta}
+      NEXUS_OIDC_AUDIENCE: ${NEXUS_OIDC_AUDIENCE:?NEXUS_OIDC_AUDIENCE is required for beta}
+      NEXUS_OIDC_JWKS_URI: ${NEXUS_OIDC_JWKS_URI:-}
+      NEXUS_OIDC_ROLES_CLAIM: ${NEXUS_OIDC_ROLES_CLAIM:-roles}
+      NEXUS_OIDC_CLIENT_ID: ${NEXUS_OIDC_CLIENT_ID:?NEXUS_OIDC_CLIENT_ID is required for beta}
+      NEXUS_OIDC_CLIENT_SECRET: ${NEXUS_OIDC_CLIENT_SECRET:?NEXUS_OIDC_CLIENT_SECRET is required for beta}
+      NEXUS_OIDC_SCOPE: ${NEXUS_OIDC_SCOPE:-openid profile}
+      NEXUS_APP_ORIGIN: ${NEXUS_APP_ORIGIN:?NEXUS_APP_ORIGIN is required for beta}
+      NEXUS_BROWSER_SESSION_AUTH: required
+      NEXUS_BROWSER_SESSION_KEY: ${NEXUS_BROWSER_SESSION_KEY:?NEXUS_BROWSER_SESSION_KEY is required for beta}
+      NEXUS_TENANT_HMAC_KEY: ${NEXUS_TENANT_HMAC_KEY:?NEXUS_TENANT_HMAC_KEY is required for beta}
+      NEXUS_QUANT_WORKER_TOKEN: ${NEXUS_QUANT_WORKER_TOKEN:?NEXUS_QUANT_WORKER_TOKEN is required for beta}
+      NEXUS_QUANT_DATA_WORKER_TOKEN: ${NEXUS_QUANT_DATA_WORKER_TOKEN:?NEXUS_QUANT_DATA_WORKER_TOKEN is required for beta}
+      LANGGRAPH_AES_KEY: ${LANGGRAPH_AES_KEY:?LANGGRAPH_AES_KEY is required for beta}
+      LANGGRAPH_AES_JSON_KEYS: content
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${NEXUS_BACKEND_DB_USER:?NEXUS_BACKEND_DB_USER is required}
+      POSTGRES_PASSWORD: ${NEXUS_BACKEND_DB_PASSWORD:?NEXUS_BACKEND_DB_PASSWORD is required}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-nexus_agent}
+      POSTGRES_URI: postgresql://${NEXUS_BACKEND_DB_USER:?NEXUS_BACKEND_DB_USER is required}:${NEXUS_BACKEND_DB_PASSWORD:?NEXUS_BACKEND_DB_PASSWORD is required}@postgres:5432/${POSTGRES_DB_NAME:-nexus_agent}?sslmode=disable&options=-csearch_path%3Dlanggraph%2Cpublic
+      QUANT_WORKER_URL: http://quant-worker:8000
+      QUANT_DATA_WORKER_URL: http://quant-data-worker:8000
+      AI_TRADER_API_BASE_URL: http://ai-trader-worker:8000/api
+      AI_TRADER_TOKEN: ${AI_TRADER_TOKEN:?AI_TRADER_TOKEN is required for beta}
+      SSL_CERT_FILE: /etc/ssl/certs/host-ca-certificates.crt
+    ports: !reset []
+    depends_on:
+      domain-migrate:
+        condition: service_completed_successfully
+      quant-worker:
+        condition: service_healthy
+      quant-data-worker:
+        condition: service_healthy
+      ai-trader-worker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/api/healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:size=256m,uid=10001,gid=10001,mode=1777]
+    mem_limit: ${BACKEND_MEMORY_LIMIT:-2g}
+    cpus: ${BACKEND_CPU_LIMIT:-2.0}
+    pids_limit: ${BACKEND_PIDS_LIMIT:-256}
+    networks:
+      default: {}
+      application-egress:
+        gw_priority: 1
+
+  quant-worker:
+    depends_on:
+      domain-migrate:
+        condition: service_completed_successfully
+    environment:
+      NEXUS_ENV: production
+      NEXUS_QUANT_WORKER_TOKEN: ${NEXUS_QUANT_WORKER_TOKEN:?NEXUS_QUANT_WORKER_TOKEN is required for beta}
+      NEXUS_DOMAIN_DATABASE_URL: postgresql://${NEXUS_QUANT_WORKER_DB_USER:?NEXUS_QUANT_WORKER_DB_USER is required}:${NEXUS_QUANT_WORKER_DB_PASSWORD:?NEXUS_QUANT_WORKER_DB_PASSWORD is required}@postgres:5432/${POSTGRES_DB_NAME:-nexus_agent}?sslmode=disable
+      QUANT_WORKER_ARTIFACT_RETENTION_SECONDS: ${QUANT_WORKER_ARTIFACT_RETENTION_SECONDS:-7776000}
+    ports: !reset []
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client,os; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/ready',headers={'Authorization':'Bearer '+os.environ['NEXUS_QUANT_WORKER_TOKEN']}); assert c.getresponse().status == 200",
+        ]
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:size=1g,uid=10001,gid=10001,mode=1777]
+    mem_limit: ${QUANT_WORKER_MEMORY_LIMIT:-6g}
+    cpus: ${QUANT_WORKER_CPU_LIMIT:-4.0}
+    pids_limit: ${QUANT_WORKER_PIDS_LIMIT:-512}
+
+  quant-data-worker:
+    depends_on:
+      domain-migrate:
+        condition: service_completed_successfully
+    environment:
+      NEXUS_ENV: production
+      NEXUS_QUANT_DATA_WORKER_TOKEN: ${NEXUS_QUANT_DATA_WORKER_TOKEN:?NEXUS_QUANT_DATA_WORKER_TOKEN is required for beta}
+      NEXUS_DOMAIN_DATABASE_URL: postgresql://${NEXUS_QUANT_DATA_DB_USER:?NEXUS_QUANT_DATA_DB_USER is required}:${NEXUS_QUANT_DATA_DB_PASSWORD:?NEXUS_QUANT_DATA_DB_PASSWORD is required}@postgres:5432/${POSTGRES_DB_NAME:-nexus_agent}?sslmode=disable
+    ports: !reset []
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client,os; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/ready',headers={'Authorization':'Bearer '+os.environ['NEXUS_QUANT_DATA_WORKER_TOKEN']}); assert c.getresponse().status == 200",
+        ]
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:size=512m,uid=10001,gid=10001,mode=1777]
+    mem_limit: ${QUANT_DATA_WORKER_MEMORY_LIMIT:-3g}
+    cpus: ${QUANT_DATA_WORKER_CPU_LIMIT:-2.0}
+    pids_limit: ${QUANT_DATA_WORKER_PIDS_LIMIT:-256}
+    networks:
+      default: {}
+      application-egress:
+        gw_priority: 1
+
+  ai-trader-worker:
+    env_file: !reset []
+    environment: &ai-trader-beta-environment
+      DB_PATH: /data/clawtrader.db
+      NEXUS_ENV: production
+      AI_TRADER_TOKEN: ${AI_TRADER_TOKEN:?AI_TRADER_TOKEN is required for beta}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      ALPHA_VANTAGE_BASE_URL: ${ALPHA_VANTAGE_BASE_URL:-https://www.alphavantage.co/query}
+      ALPHA_VANTAGE_ALLOWED_HOSTS: ${ALPHA_VANTAGE_ALLOWED_HOSTS:-www.alphavantage.co}
+      AI_TRADER_MARKET_NEWS_LOOKBACK_HOURS: ${AI_TRADER_MARKET_NEWS_LOOKBACK_HOURS:-48}
+      AI_TRADER_MARKET_NEWS_LIMIT: ${AI_TRADER_MARKET_NEWS_LIMIT:-50}
+      AI_TRADER_MARKET_NEWS_CATEGORIES: ${AI_TRADER_MARKET_NEWS_CATEGORIES:-equities,macro,crypto,commodities}
+      AI_TRADER_MARKET_NEWS_REFRESH_INTERVAL_SECONDS: ${AI_TRADER_MARKET_NEWS_REFRESH_INTERVAL_SECONDS:-3600}
+      AI_TRADER_MARKET_NEWS_REFRESH_STARTUP_DELAY_SECONDS: ${AI_TRADER_MARKET_NEWS_REFRESH_STARTUP_DELAY_SECONDS:-3}
+      AI_TRADER_MARKET_NEWS_STALE_AFTER_SECONDS: ${AI_TRADER_MARKET_NEWS_STALE_AFTER_SECONDS:-7200}
+    ports: !reset []
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client,os; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/ready',headers={'Authorization':'Bearer '+os.environ['AI_TRADER_TOKEN']}); assert c.getresponse().status == 200",
+        ]
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:size=128m,uid=10001,gid=10001,mode=1777]
+    mem_limit: ${AI_TRADER_MEMORY_LIMIT:-512m}
+    cpus: ${AI_TRADER_CPU_LIMIT:-0.75}
+    pids_limit: ${AI_TRADER_PIDS_LIMIT:-128}
+    networks:
+      default: {}
+      application-egress:
+        gw_priority: 1
+
+  ai-trader-worker-refresh:
+    env_file: !reset []
+    environment: *ai-trader-beta-environment
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:size=128m,uid=10001,gid=10001,mode=1777]
+    mem_limit: ${AI_TRADER_REFRESH_MEMORY_LIMIT:-512m}
+    cpus: ${AI_TRADER_REFRESH_CPU_LIMIT:-0.75}
+    pids_limit: ${AI_TRADER_REFRESH_PIDS_LIMIT:-128}
+    networks:
+      default: {}
+      application-egress:
+        gw_priority: 1
+
+  frontend:
+    build:
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+        NGINX_BACKEND_UPSTREAM: http://backend:8000
+    ports: !override
+      - "${APP_BIND_HOST:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=64m,uid=101,gid=101,mode=1777
+      - /etc/nginx/conf.d:size=16m,uid=101,gid=101,mode=0755
+      - /var/cache/nginx:size=64m,uid=101,gid=101,mode=0755
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-256m}
+    cpus: ${FRONTEND_CPU_LIMIT:-0.5}
+    pids_limit: ${FRONTEND_PIDS_LIMIT:-64}
+    networks:
+      default: {}
+      public-ingress:
+        gw_priority: 1
+
+volumes:
+  qlib-data:
+  quant-artifacts:
+  quant-staging:
+  ai-trader-data:
+
+networks:
+  default:
+    internal: true
+  application-egress: {}
+  public-ingress: {}

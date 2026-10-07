@@ -1,0 +1,13 @@
+.git/
+.codegraph/
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv/
+**/node_modules/
+**/dist/
+**/__pycache__/
+**/.langgraph_api/
