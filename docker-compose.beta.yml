@@ -1,15 +1,18 @@
 # Single-node private-beta hardening overlay.
 #
-# Resource ceilings are sized for a DEMO, not for real users. The stack was
-# started and sampled with `docker stats` (5 samples, 10s apart, idle) and the
-# ceilings were cut to roughly one third of their original values. Idle usage
-# observed: postgres 39 MB, ai-trader-worker 53 MB, ai-trader-worker-refresh
-# 33 MB, frontend 3.9 MB. The backend and the two quant workers could not be
-# started on the measurement host, so their ceilings are estimated, not measured.
+# Resource ceilings are sized for a DEMO, not for real users. Two rounds of
+# `docker stats` sampling on an idle stack cut them to roughly one sixth of
+# their original values: 14.75 GB / 12.5 CPU -> 2.375 GB / 3.125 CPU. Idle
+# usage observed was postgres 39 MB, ai-trader-worker 53 MB,
+# ai-trader-worker-refresh 33 MB, frontend 3.9 MB. The backend and the two
+# quant workers could not be started on the measurement host, so their ceilings
+# are estimated, not measured -- do not size a host from the idle numbers alone.
 #
-# Every ceiling keeps its ${VAR:-default} form, so a single service can be
-# raised from .env for a real deployment without editing this file. The
-# original value is noted beside each one.
+# These are ceilings, not reservations. The stack runs on a host smaller than
+# their sum because idle usage is far lower, but a burst that reaches the
+# ceilings will be OOM-killed, so leave headroom. The original value is noted
+# beside each ceiling, and every ceiling keeps its ${VAR:-default} form, so a
+# single service can be raised from .env without editing this file.
 services:
   postgres:
     environment:
@@ -24,10 +27,10 @@ services:
     tmpfs:
       - /tmp:size=64m,mode=1777
       - /var/run/postgresql:size=16m,uid=70,gid=70,mode=0775
-    # Demo sizing: mem 2g -> 512m, cpu 1.5 -> 1.0. Idle usage measured at 39 MB.
-    # Raise POSTGRES_MEMORY_LIMIT / POSTGRES_CPU_LIMIT before serving real users.
-    mem_limit: ${POSTGRES_MEMORY_LIMIT:-512m}
-    cpus: ${POSTGRES_CPU_LIMIT:-1.0}
+    # Demo sizing: mem 512m -> 256m (originally 2g), cpu 1.0 -> 0.5 (was 1.5).
+    # Idle usage measured at 39 MB.
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-256m}
+    cpus: ${POSTGRES_CPU_LIMIT:-0.5}
     pids_limit: ${POSTGRES_PIDS_LIMIT:-200}
 
   domain-migrate:
@@ -48,9 +51,10 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     tmpfs: [/tmp:size=256m,uid=10001,gid=10001,mode=1777]
-    # Demo sizing: mem 512m -> 384m, cpu 1.0 -> 0.5. One-shot bootstrap job.
-    mem_limit: ${DOMAIN_MIGRATE_MEMORY_LIMIT:-384m}
-    cpus: ${DOMAIN_MIGRATE_CPU_LIMIT:-0.5}
+    # Demo sizing: mem 384m -> 192m (originally 512m), cpu 0.5 -> 0.25 (was 1.0).
+    # One-shot bootstrap job, so the ceiling only has to survive a migration run.
+    mem_limit: ${DOMAIN_MIGRATE_MEMORY_LIMIT:-192m}
+    cpus: ${DOMAIN_MIGRATE_CPU_LIMIT:-0.25}
     pids_limit: ${DOMAIN_MIGRATE_PIDS_LIMIT:-128}
 
   backend:
@@ -109,12 +113,13 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     tmpfs: [/tmp:size=256m,uid=10001,gid=10001,mode=1777]
-    # Demo sizing: mem 2g -> 1g, cpu 2.0 -> 1.0. NOT measured: the pinned
-    # langgraph-api base image refuses to start without a LangGraph Cloud
-    # license key, so this ceiling is estimated. Watch for OOM kills under a
-    # long graph run before trusting it.
-    mem_limit: ${BACKEND_MEMORY_LIMIT:-1g}
-    cpus: ${BACKEND_CPU_LIMIT:-1.0}
+    # Demo sizing: mem 1g -> 512m (originally 2g), cpu 1.0 -> 0.5 (was 2.0).
+    # NOT measured: the pinned langgraph-api base image refuses to start without
+    # a LangGraph Cloud license key, so this ceiling is the least trustworthy in
+    # the file. This service runs a Go core server and a Python API server in
+    # one container; raise BACKEND_MEMORY_LIMIT and watch for OOM kills.
+    mem_limit: ${BACKEND_MEMORY_LIMIT:-512m}
+    cpus: ${BACKEND_CPU_LIMIT:-0.5}
     pids_limit: ${BACKEND_PIDS_LIMIT:-256}
     networks:
       default: {}
@@ -144,12 +149,12 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     tmpfs: [/tmp:size=1g,uid=10001,gid=10001,mode=1777]
-    # Demo sizing: mem 6g -> 1.5g, cpu 4.0 -> 1.5. NOT measured. Tightest
-    # estimate here: the qlib extra pulls in catboost, xgboost, mlflow,
-    # scikit-learn, scipy and pyarrow, which are heavy just to import. Raise
-    # QUANT_WORKER_MEMORY_LIMIT before running a real training job.
-    mem_limit: ${QUANT_WORKER_MEMORY_LIMIT:-1.5g}
-    cpus: ${QUANT_WORKER_CPU_LIMIT:-1.5}
+    # Demo sizing: mem 1.5g -> 768m (originally 6g), cpu 1.5 -> 0.75 (was 4.0).
+    # NOT measured. Tightest estimate here: the qlib extra pulls in catboost,
+    # xgboost, mlflow, scikit-learn, scipy and pyarrow, which are heavy just to
+    # import. Raise QUANT_WORKER_MEMORY_LIMIT before running a real training job.
+    mem_limit: ${QUANT_WORKER_MEMORY_LIMIT:-768m}
+    cpus: ${QUANT_WORKER_CPU_LIMIT:-0.75}
     pids_limit: ${QUANT_WORKER_PIDS_LIMIT:-512}
 
   quant-data-worker:
@@ -174,10 +179,10 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     tmpfs: [/tmp:size=512m,uid=10001,gid=10001,mode=1777]
-    # Demo sizing: mem 3g -> 768m, cpu 2.0 -> 1.0. NOT measured; the openbb
-    # extra is lighter than the qlib one but still large.
-    mem_limit: ${QUANT_DATA_WORKER_MEMORY_LIMIT:-768m}
-    cpus: ${QUANT_DATA_WORKER_CPU_LIMIT:-1.0}
+    # Demo sizing: mem 768m -> 384m (originally 3g), cpu 1.0 -> 0.5 (was 2.0).
+    # NOT measured; the openbb extra is lighter than the qlib one but still large.
+    mem_limit: ${QUANT_DATA_WORKER_MEMORY_LIMIT:-384m}
+    cpus: ${QUANT_DATA_WORKER_CPU_LIMIT:-0.5}
     pids_limit: ${QUANT_DATA_WORKER_PIDS_LIMIT:-256}
     networks:
       default: {}
@@ -213,9 +218,10 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     tmpfs: [/tmp:size=128m,uid=10001,gid=10001,mode=1777]
-    # Demo sizing: mem 512m -> 256m, cpu 0.75 -> 0.5. Idle usage measured at 53 MB.
-    mem_limit: ${AI_TRADER_MEMORY_LIMIT:-256m}
-    cpus: ${AI_TRADER_CPU_LIMIT:-0.5}
+    # Demo sizing: mem 256m -> 128m (originally 512m), cpu 0.5 -> 0.25 (was 0.75).
+    # Idle usage measured at 53 MB.
+    mem_limit: ${AI_TRADER_MEMORY_LIMIT:-128m}
+    cpus: ${AI_TRADER_CPU_LIMIT:-0.25}
     pids_limit: ${AI_TRADER_PIDS_LIMIT:-128}
     networks:
       default: {}
@@ -230,9 +236,10 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     tmpfs: [/tmp:size=128m,uid=10001,gid=10001,mode=1777]
-    # Demo sizing: mem 512m -> 256m, cpu 0.75 -> 0.5. Idle usage measured at 33 MB.
-    mem_limit: ${AI_TRADER_REFRESH_MEMORY_LIMIT:-256m}
-    cpus: ${AI_TRADER_REFRESH_CPU_LIMIT:-0.5}
+    # Demo sizing: mem 256m -> 128m (originally 512m), cpu 0.5 -> 0.25 (was 0.75).
+    # Idle usage measured at 33 MB.
+    mem_limit: ${AI_TRADER_REFRESH_MEMORY_LIMIT:-128m}
+    cpus: ${AI_TRADER_REFRESH_CPU_LIMIT:-0.25}
     pids_limit: ${AI_TRADER_REFRESH_PIDS_LIMIT:-128}
     networks:
       default: {}
@@ -255,10 +262,10 @@ services:
       - /tmp:size=64m,uid=101,gid=101,mode=1777
       - /etc/nginx/conf.d:size=16m,uid=101,gid=101,mode=0755
       - /var/cache/nginx:size=64m,uid=101,gid=101,mode=0755
-    # Demo sizing: mem 256m -> 128m, cpu 0.5 -> 0.25. Idle usage measured at
-    # 3.9 MB; nginx only needs headroom for concurrent connections.
-    mem_limit: ${FRONTEND_MEMORY_LIMIT:-128m}
-    cpus: ${FRONTEND_CPU_LIMIT:-0.25}
+    # Demo sizing: mem 128m -> 64m (originally 256m), cpu 0.25 -> 0.125 (was 0.5).
+    # Idle usage measured at 3.9 MB; nginx only needs headroom for connections.
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-64m}
+    cpus: ${FRONTEND_CPU_LIMIT:-0.125}
     pids_limit: ${FRONTEND_PIDS_LIMIT:-64}
     networks:
       default: {}
