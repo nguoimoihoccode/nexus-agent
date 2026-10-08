@@ -10,7 +10,7 @@ The demo runs `docker-compose.yml` plus two overlays:
 
 | File | Role |
 | --- | --- |
-| `docker-compose.demo.yml` | Development-stage backend, loopback-bound frontend, quant workers behind a profile, demo-sized resource ceilings |
+| `docker-compose.demo.yml` | Development-stage backend, loopback-bound frontend, optional workers behind profiles, demo-sized resource ceilings |
 | `docker-compose.deploy.yml` | Replaces every `build:` with a published `ghcr.io` image pinned to a commit tag |
 
 The backend runs the `development` build stage, which serves the product with
@@ -60,6 +60,20 @@ Only the backend, frontend, and AI-Trader worker images are published. The two
 quant workers stay behind the `quant` profile and keep building locally, because
 their qlib and OpenBB dependency trees are large and the demo does not start
 them.
+
+The default start set is therefore five services: `postgres`, `domain-migrate`,
+`backend`, `ai-trader-worker`, and `frontend`, with 832 MB of memory ceiling
+between the four that keep running. The market-data refresh worker sits behind
+the `refresh` profile, off by default, so the demo shows the market data the
+worker last held rather than fresh data. Enable it with `--profile refresh` only
+after raising the ceilings; it is a second copy of a worker the backend cannot
+afford to lose memory to.
+
+Every ceiling keeps its `${VAR:-default}` form, so one service can be raised
+from `DEMO_ENV` without editing a file. Check the host before the first deploy —
+`free -h` — and raise them if it has more room than the demo was sized for.
+Watch `dmesg` or `docker inspect --format '{{.State.OOMKilled}}'` for a kill:
+that is the ceiling being too low, not the service failing.
 
 ## First-time setup
 

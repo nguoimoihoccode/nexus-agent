@@ -122,6 +122,24 @@ class SecurityInventoryTests(unittest.TestCase):
         for required in ("read_only: true", "no-new-privileges:true", "pids_limit:"):
             self.assertIn(required, compose)
 
+    def test_demo_start_set_fits_the_small_host_the_overlay_targets(self) -> None:
+        compose = (REPO_ROOT / "docker-compose.demo.yml").read_text(encoding="utf-8")
+
+        # The refresh worker is the least essential service here and the one
+        # whose memory the backend most needs, so it stays out of the default
+        # start set the way the quant workers do. Both numbers are a budget the
+        # deploy overlay's ~1 GB host depends on, not free parameters.
+        self.assertIn('profiles: ["refresh"]', compose)
+        self.assertIn("${BACKEND_MEMORY_LIMIT:-384m}", compose)
+
+        # `pull` takes an explicit service list rather than resolving profiles,
+        # so a profiled-off name must not appear there or the deploy fetches an
+        # image nothing runs.
+        script = (REPO_ROOT / "deploy/remote-deploy.sh").read_text(encoding="utf-8")
+        services = script.split("SERVICES=(", 1)[1].split(")", 1)[0]
+        self.assertNotIn("ai-trader-worker-refresh", services)
+        self.assertIn("backend", services)
+
     def test_deploy_overlay_runs_published_images_instead_of_building(self) -> None:
         compose = (REPO_ROOT / "docker-compose.deploy.yml").read_text(encoding="utf-8")
 

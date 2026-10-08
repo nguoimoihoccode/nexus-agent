@@ -10,8 +10,13 @@
 # The tag is a commit SHA written into .env by deploy/remote-deploy.sh, so
 # rolling back is one edit to NEXUS_IMAGE_TAG followed by `up -d`.
 #
-# Only the services the demo profile starts are listed. The quant workers stay
-# behind the `quant` profile and keep building locally.
+# Only the services the demo profile starts are listed, plus the refresh worker
+# whose profile is off. The quant workers stay behind the `quant` profile and
+# keep building locally.
+#
+# The refresh worker is listed even though nothing starts it, so that enabling
+# `--profile refresh` on the host pulls the published image instead of falling
+# back to the base file's `build:` and compiling on a host with no room for it.
 
 services:
   # The backend image also runs the one-shot migration job.

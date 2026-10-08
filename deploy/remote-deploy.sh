@@ -22,14 +22,18 @@ ENV_FILE="${APP_DIR}/.env"
 ENV_SOURCE="${NEXUS_ENV_SOURCE:-${HOME}/nexus-demo.env}"
 PUBLIC_URL="${NEXUS_PUBLIC_URL:-https://nguoimoihoccode.io.vn/}"
 
-# Services this overlay deploys, so `pull` never depends on profile resolution.
-# Keep in step with deploy/publish-image-*.yml and docker-compose.deploy.yml.
+# Services the demo starts by default, so `pull` never depends on profile
+# resolution. Keep in step with the images published by
+# .github/workflows/deploy.yml and with docker-compose.deploy.yml.
+#
+# ai-trader-worker-refresh is deliberately absent: docker-compose.demo.yml puts
+# it behind the `refresh` profile, which is off, so pulling it would only fetch
+# an image nothing runs.
 SERVICES=(
   postgres
   domain-migrate
   backend
   ai-trader-worker
-  ai-trader-worker-refresh
   frontend
 )
 

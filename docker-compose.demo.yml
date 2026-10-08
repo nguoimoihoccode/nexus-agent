@@ -19,12 +19,20 @@
 # The two quant workers build multi-gigabyte qlib and OpenBB dependency trees
 # and are not needed for the demo, so they sit behind the `quant` profile and
 # are off by default. The supervisor still registers their agents; their tools
-# return a structured error while the workers are absent.
+# return a structured error while the workers are absent. The market-data
+# refresh worker sits behind `refresh` for the same reason: it is the least
+# essential service here and the one whose ceiling the backend most needs.
 #
 # Resource ceilings mirror docker-compose.beta.yml: sized for a demo on a small
 # host, not for real users. They are ceilings, not reservations. Every ceiling
 # keeps its ${VAR:-default} form so a single service can be raised from .env
 # without editing this file.
+#
+# Started by default: postgres 256m, backend 384m, ai-trader-worker 128m,
+# frontend 64m -- 832m of ceiling over four running containers. domain-migrate
+# (192m) runs once and exits. That is deliberately under the sum the beta
+# profile carries, because the deploy overlay targets a host with about 1 GB
+# free and idle usage is a fraction of these numbers.
 
 services:
   postgres:
@@ -87,7 +95,14 @@ services:
     cap_drop: [ALL]
     tmpfs:
       - /tmp:size=256m,uid=10001,gid=10001,mode=1777
-    mem_limit: ${BACKEND_MEMORY_LIMIT:-512m}
+    # Demo sizing: 512m -> 384m. The beta figure this mirrors was itself an
+    # estimate for the langgraph-api base image, which could not be started on
+    # the measurement host; the demo runs the `development` stage instead, a
+    # single `langgraph dev` process with no Go core server beside it, so it
+    # needs less. Still a guess, and this is the service a user is most likely
+    # to push hard, so treat an OOM kill here as this ceiling being too low:
+    # raise BACKEND_MEMORY_LIMIT from .env and watch for the kill.
+    mem_limit: ${BACKEND_MEMORY_LIMIT:-384m}
     cpus: ${BACKEND_CPU_LIMIT:-0.5}
     pids_limit: ${BACKEND_PIDS_LIMIT:-256}
 
@@ -107,7 +122,16 @@ services:
     cpus: ${AI_TRADER_CPU_LIMIT:-0.25}
     pids_limit: ${AI_TRADER_PIDS_LIMIT:-128}
 
+  # Off by default, like the quant workers. It is a second copy of the worker
+  # running the periodic market-data refresh, and on a host this small its
+  # scheduled job competes with the backend for the memory the backend needs
+  # most. Enable with `--profile refresh` after raising the ceilings above; the
+  # demo then shows whatever market data the worker last held, not fresh data.
+  #
+  # The block is kept whole rather than deleted so that enabling the profile
+  # behaves the same way the other overrides do.
   ai-trader-worker-refresh:
+    profiles: ["refresh"]
     env_file: !reset []
     environment:
       NEXUS_ENV: development
