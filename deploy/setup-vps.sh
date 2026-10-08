@@ -32,10 +32,19 @@ HTPASSWD_FILE="/etc/nginx/nexus-demo.htpasswd"
 ACME_WEBROOT="/var/www/certbot"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-VHOST_SOURCE="${SCRIPT_DIR}/nginx/nguoimoihoccode.io.vn.conf"
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+# Run a command as the deploy account. runuser ships with util-linux on every
+# supported host; sudo is the fallback for images that strip it.
+as_deploy() {
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$DEPLOY_USER" -- "$@"
+  else
+    sudo -u "$DEPLOY_USER" "$@"
+  fi
+}
 
 [ "$(id -u)" -eq 0 ] || die "run as root"
 command -v docker >/dev/null || die "docker is not installed"
@@ -51,8 +60,7 @@ if ! id "$DEPLOY_USER" >/dev/null 2>&1; then
   adduser --system --group --home "/home/${DEPLOY_USER}" --shell /bin/bash "$DEPLOY_USER"
 fi
 usermod -aG docker "$DEPLOY_USER"
-install -d -m 755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh"
-install -m 700 -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh"
+install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh"
 
 if [ ! -s "/home/${DEPLOY_USER}/.ssh/authorized_keys" ]; then
   if [ -n "${NEXUS_DEPLOY_PUBKEY:-}" ]; then
@@ -77,10 +85,22 @@ chown "$DEPLOY_USER:$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh/authorized_keys"
 log "Preparing the checkout at ${APP_DIR}"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$(dirname "$APP_DIR")"
 if [ ! -d "${APP_DIR}/.git" ]; then
-  sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$APP_DIR"
+  as_deploy git clone "$REPO_URL" "$APP_DIR"
+else
+  as_deploy git -C "$APP_DIR" fetch --prune origin main
+  as_deploy git -C "$APP_DIR" reset --hard origin/main
 fi
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
 chmod 700 "$APP_DIR"
+
+# The vhost comes from the checkout, so this works when only this script was
+# copied to the host. SCRIPT_DIR is the fallback for a run straight out of a
+# local clone that has not been pushed yet.
+VHOST_SOURCE="${APP_DIR}/deploy/nginx/${DOMAIN}.conf"
+if [ ! -f "$VHOST_SOURCE" ]; then
+  VHOST_SOURCE="${SCRIPT_DIR}/nginx/${DOMAIN}.conf"
+fi
+[ -f "$VHOST_SOURCE" ] || die "cannot find the vhost file for ${DOMAIN}"
 
 # The workflow stages the environment here and remote-deploy.sh consumes it.
 install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}"
@@ -162,6 +182,8 @@ if [ ! -s "$HTPASSWD_FILE" ]; then
 fi
 chmod 640 "$HTPASSWD_FILE"
 chgrp www-data "$HTPASSWD_FILE" 2>/dev/null || true
+# Also correct on a re-run, where the credential already existed.
+basic_auth_user="${basic_auth_user:-$(cut -d: -f1 "$HTPASSWD_FILE" | head -n1)}"
 
 nginx -t
 systemctl reload nginx
@@ -181,7 +203,7 @@ Add these to GitHub before the first deploy:
     Secrets
       VPS_SSH_KEY               private half of the deploy key
       DEMO_ENV                  contents of deploy/.env.example, filled in
-      DEMO_BASIC_AUTH_USER      the basic-auth username chosen above
+      DEMO_BASIC_AUTH_USER      ${basic_auth_user}
       DEMO_BASIC_AUTH_PASSWORD  the matching password
     Variables
       VPS_HOST                  116.118.6.139
