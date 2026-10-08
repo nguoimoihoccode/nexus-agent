@@ -7,21 +7,21 @@ name = "nexus-quant-data-worker"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "fastapi>=0.115,<1",
-    "numpy>=1.24,<2",
-    "pandas>=1.5,<3",
-    "pydantic>=2,<3",
-    "psycopg[binary,pool]>=3.3.4,<4",
-    "uvicorn[standard]>=0.34,<1",
+    "fastapi>=0.142.2,<1",
+    "numpy>=2.4.6,<3",
+    "pandas>=3.0.6,<4",
+    "pydantic>=2.13.5,<3",
+    "psycopg[binary,pool]>=3.3.6,<4",
+    "uvicorn[standard]>=0.54.0,<1",
 ]
 
 [project.optional-dependencies]
 openbb = [
-    "openbb>=4,<5",
-    "openbb-yfinance>=1,<2",
+    "openbb>=5.0.0,<6",
+    "openbb-yfinance>=2.0.0,<3",
 ]
 dev = [
-    "httpx>=0.28,<0.29",
+    "httpx>=0.28.1,<0.29",
 ]
 
 [tool.hatch.build.targets.wheel]

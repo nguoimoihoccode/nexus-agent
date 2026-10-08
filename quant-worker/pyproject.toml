@@ -7,27 +7,27 @@ name = "nexus-quant-worker"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "fastapi>=0.115,<1",
-    "numpy>=1.24,<2",
-    "pandas>=1.5,<3",
-    "psycopg[binary,pool]>=3.3.4,<4",
-    "uvicorn[standard]>=0.34,<1",
+    "fastapi>=0.142.2,<1",
+    "numpy>=2.4.6,<3",
+    "pandas>=3.0.6,<4",
+    "psycopg[binary,pool]>=3.3.6,<4",
+    "uvicorn[standard]>=0.54.0,<1",
 ]
 
 [project.optional-dependencies]
 qlib = [
-    "catboost>=1.2,<2",
-    "mlflow>=3.11,<4",
-    "pyarrow>=23.0.1,<24",
+    "catboost>=1.2.10,<2",
+    "mlflow>=3.16.1,<4",
+    "pyarrow>=25.0.1,<26",
     "pyqlib==0.9.7",
-    "scikit-learn>=1.4,<2",
-    "scipy>=1.10,<2",
-    "xgboost>=2,<4",
+    "scikit-learn>=1.9.1,<2",
+    "scipy>=1.17.1,<2",
+    "xgboost>=3.2.0,<4",
 ]
 dev = [
-    "httpx>=0.28,<0.29",
+    "httpx>=0.28.1,<0.29",
     "pyqlib==0.9.7",
-    "pytest>=9.0.3,<10",
+    "pytest>=9.1.1,<10",
 ]
 
 [tool.hatch.build.targets.wheel]
