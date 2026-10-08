@@ -94,6 +94,9 @@ fi
 if [ ! -d "${APP_DIR}/.git" ]; then
   as_deploy git clone "$REPO_URL" "$APP_DIR"
 else
+  # Pin the public HTTPS URL. The deploy account has no GitHub SSH key, so a
+  # checkout that was originally cloned over SSH could not be fetched by it.
+  as_deploy git -C "$APP_DIR" remote set-url origin "$REPO_URL"
   as_deploy git -C "$APP_DIR" fetch --prune origin main
   as_deploy git -C "$APP_DIR" reset --hard origin/main
 fi
