@@ -128,6 +128,10 @@ jobs:
 
   deploy:
     needs: publish
+    # Skip rather than fail until the Environment is configured. The check is
+    # the one value setup-vps.sh tells you to add first, so an unconfigured
+    # repository shows a clear "skipped" instead of a red run on every push.
+    if: ${{ vars.VPS_HOST != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Secrets and variables come from this Environment. Attach a required
