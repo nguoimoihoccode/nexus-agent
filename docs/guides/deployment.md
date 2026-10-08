@@ -69,8 +69,14 @@ for `nguoimoihoccode.io.vn`, obtains a certificate, and sets the basic-auth
 credential. It is additive: it does not modify the other vhosts on that nginx.
 
 ```bash
-ssh root@116.118.6.139 'bash -s' < deploy/setup-vps.sh
+scp deploy/setup-vps.sh root@<host>:/tmp/
+ssh -t root@<host> 'bash /tmp/setup-vps.sh'
 ```
+
+The `-t` matters. Piping the script in with
+`ssh root@<host> 'bash -s' < deploy/setup-vps.sh` puts the script itself on
+stdin, where the prompts would consume the remaining lines instead of reading an
+answer, and `htpasswd` could not ask for a password at all.
 
 Then create a GitHub Environment named `demo` and fill it in. The script prints
 the same list when it finishes.

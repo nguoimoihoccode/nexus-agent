@@ -2,10 +2,22 @@
 #
 # One-time host setup for the Nexus demo. Run this ON the host, as root.
 #
-#   ssh root@116.118.6.139 'bash -s' < deploy/setup-vps.sh
+# Copy it over and run it with an allocated terminal:
+#
+#   scp deploy/setup-vps.sh root@<host>:/tmp/
+#   ssh -t root@<host> 'bash /tmp/setup-vps.sh'
+#
+# Do not use `ssh root@<host> 'bash -s' < deploy/setup-vps.sh`. The script
+# arrives on stdin, and the prompts below read from stdin too, so `read` would
+# swallow the rest of the script instead of reading your answer. The `-t` above
+# gives the prompts a terminal and lets htpasswd ask for the password itself.
 #
 # It is idempotent and additive: it never edits the other vhosts already served
 # by this nginx, only adds a new server block for the demo hostname.
+#
+# Non-interactive use: set NEXUS_DEPLOY_PUBKEY and NEXUS_BASIC_AUTH_USER to
+# answer the first two prompts, and pipe the htpasswd password in when
+# NEXUS_BASIC_AUTH_PASSWORD is set.
 #
 # After it finishes you have to add four values to GitHub before the deploy
 # workflow can run. The script prints the exact list at the end.
@@ -43,10 +55,18 @@ install -d -m 755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh
 install -m 700 -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh"
 
 if [ ! -s "/home/${DEPLOY_USER}/.ssh/authorized_keys" ]; then
-  printf '%s\n' \
-    "No authorized_keys yet for ${DEPLOY_USER}." \
-    "Generate the deploy key locally, then paste the PUBLIC key here:"
-  read -r -p "public key: " deploy_pubkey
+  if [ -n "${NEXUS_DEPLOY_PUBKEY:-}" ]; then
+    deploy_pubkey="$NEXUS_DEPLOY_PUBKEY"
+  else
+    printf '%s\n' \
+      "No authorized_keys yet for ${DEPLOY_USER}." \
+      "Generate the deploy key locally, then paste the PUBLIC key here:"
+    read -r -p "public key: " deploy_pubkey
+  fi
+  case "$deploy_pubkey" in
+    ssh-ed25519\ *|ssh-rsa\ *|ecdsa-sha2-*\ *) ;;
+    *) die "that does not look like an SSH public key" ;;
+  esac
   printf '%s\n' "$deploy_pubkey" \
     > "/home/${DEPLOY_USER}/.ssh/authorized_keys"
 fi
@@ -123,10 +143,22 @@ fi
 
 if [ ! -s "$HTPASSWD_FILE" ]; then
   log "Setting the basic-auth credential for the demo gate"
-  read -r -p "basic-auth username: " basic_auth_user
+  if [ -n "${NEXUS_BASIC_AUTH_USER:-}" ]; then
+    basic_auth_user="$NEXUS_BASIC_AUTH_USER"
+  else
+    read -r -p "basic-auth username: " basic_auth_user
+  fi
   [ -n "$basic_auth_user" ] || die "username cannot be empty"
-  # -c creates the file; the password is read interactively and never printed.
-  htpasswd -c "$HTPASSWD_FILE" "$basic_auth_user"
+  if [ -n "${NEXUS_BASIC_AUTH_PASSWORD:-}" ]; then
+    # -i reads the password from stdin, so it never reaches an argument list.
+    printf '%s\n' "$NEXUS_BASIC_AUTH_PASSWORD" |
+      htpasswd -i -c "$HTPASSWD_FILE" "$basic_auth_user"
+    unset NEXUS_BASIC_AUTH_PASSWORD
+  else
+    # -c creates the file; htpasswd prompts on the terminal and reads it back,
+    # so the password is never echoed.
+    htpasswd -c "$HTPASSWD_FILE" "$basic_auth_user"
+  fi
 fi
 chmod 640 "$HTPASSWD_FILE"
 chgrp www-data "$HTPASSWD_FILE" 2>/dev/null || true
