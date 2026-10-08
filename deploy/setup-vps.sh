@@ -84,6 +84,13 @@ chown "$DEPLOY_USER:$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh/authorized_keys"
 # ---------------------------------------------------------------------------
 log "Preparing the checkout at ${APP_DIR}"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$(dirname "$APP_DIR")"
+# Ownership comes first. A checkout left behind by an earlier root login is
+# owned by root, and git refuses to read a repository whose owner differs from
+# the user running it ("detected dubious ownership"), which is its protection
+# against a planted repo being executed through a privileged git.
+if [ -e "$APP_DIR" ]; then
+  chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
+fi
 if [ ! -d "${APP_DIR}/.git" ]; then
   as_deploy git clone "$REPO_URL" "$APP_DIR"
 else
