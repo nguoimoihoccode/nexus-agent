@@ -29,6 +29,9 @@ Browser -> React/Nginx -> LangGraph supervisor -> PostgreSQL
                            |-> quant-researcher -> Qlib worker
                            `-> ai-trader-agent -> AI-Trader worker
 ```
+## Flow
+<img width="2322" height="1908" alt="mermaid-diagram" src="https://github.com/user-attachments/assets/45f504ff-2cca-4903-9cf2-9cb28a289959" />
+
 
 PostgreSQL owns checkpoints, workflow/evidence state, approvals, authorization
 leases, events, and actor-scoped keyed memory with a bounded text/Markdown aggregate.
