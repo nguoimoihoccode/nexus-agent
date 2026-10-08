@@ -119,10 +119,11 @@ jobs:
         env:
           PREFIX: ${{ steps.meta.outputs.prefix }}
           TAG: ${{ steps.meta.outputs.tag }}
+          DEEPSEEK_API_KEY: deploy-smoke # pragma: allowlist secret
         run: |
           set -euo pipefail
           docker run --rm \
-            --env DEEPSEEK_API_KEY=deploy-smoke \
+            --env DEEPSEEK_API_KEY \
             --entrypoint python "${PREFIX}/backend:${TAG}" \
             -c 'import source.http_app'
 

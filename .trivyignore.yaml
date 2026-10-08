@@ -1,11 +1,14 @@
 vulnerabilities:
-  - id: CVE-2026-39822
+  - id: CVE-2026-84445
     paths:
       - app/datadog-init
-      - usr/local/bin/core-api-grpc
-    expired_at: 2026-08-15
+    expired_at: 2027-01-15
     statement: >-
-      Temporary exception owned by the Nexus platform/security maintainer. These
-      Go binaries are inherited from langchain/langgraph-api:3.11 and cannot be
-      rebuilt by this repository. Replace the base image with an upstream build
-      using the fixed Go standard library before this exception expires.
+      Temporary exception owned by the Nexus platform/security maintainer. This
+      gRPC-Go denial of service sits in the Datadog init wrapper that
+      langchain/langgraph-api:3.11 runs ahead of uvicorn, and Datadog links that
+      binary statically, so this repository cannot rebuild it. The previous
+      exception, CVE-2026-39822, was retired by moving the base image to the
+      digest published for this tag. Re-check on the next base image bump and
+      drop this entry once that build carries google.golang.org/grpc 1.83.2 or
+      newer.

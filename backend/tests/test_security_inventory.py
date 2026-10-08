@@ -35,7 +35,7 @@ class SecurityInventoryTests(unittest.TestCase):
 
         self.assertRegex(
             compose,
-            r"image: postgres:16\.14-alpine3\.24@sha256:[0-9a-f]{64}",
+            r"image: postgres:16\.15-alpine3\.24@sha256:[0-9a-f]{64}",
         )
         self.assertNotIn("infra/postgres", compose)
         self.assertIn("quant-artifacts:/data/artifacts", compose)

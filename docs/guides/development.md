@@ -205,6 +205,14 @@ production Nginx boundary; HSTS is its only ignored alert because TLS terminates
 trusted ingress. The deterministic acceptance suite is described in
 [Product validation](product-validation.md).
 
+The container vulnerability policy compares each image against fresh advisory data, so a
+passing build does not stay passing: a published base image can acquire new findings, and
+a pin that was clean when it was written can fail later. When that happens, move the pin
+to the digest or patch release the upstream tag now serves and rebuild before reaching
+for a suppression. `.trivyignore.yaml` is the last resort, and only for findings this
+repository cannot rebuild — every entry names the affected paths, carries an `expired_at`
+that Trivy enforces, and states what makes it go away.
+
 PostgreSQL major upgrades are deliberate compatibility work: Dependabot ignores
 automatic major updates for the Compose image while still proposing supported patch
 and minor image updates.

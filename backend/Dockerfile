@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.10.6@sha256:2f2ccd27bbf953ec7a9e3153a4563705e41c852a5e1912b438fc44d88d6cb52c AS uv
 
-FROM langchain/langgraph-api:3.11@sha256:3997cebb2212b759272d1774310d215a9b937e70f32f92288d09cb14e6a14e04 AS production-deps
+FROM langchain/langgraph-api:3.11@sha256:5e2279e2a21b627a8f76ef178deb58c612d0124abd0f3349b47402af3231c529 AS production-deps
 
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -28,7 +28,7 @@ RUN --mount=type=bind,from=uv_cache,target=/root/.cache/uv,rw \
     SSL_CERT_FILE=/tmp/host-ca-certificates.crt \
     uv sync --locked --no-dev --no-editable
 
-FROM langchain/langgraph-api:3.11@sha256:3997cebb2212b759272d1774310d215a9b937e70f32f92288d09cb14e6a14e04 AS production
+FROM langchain/langgraph-api:3.11@sha256:5e2279e2a21b627a8f76ef178deb58c612d0124abd0f3349b47402af3231c529 AS production
 
 ARG APP_UID=10001
 ARG APP_GID=10001
@@ -45,6 +45,16 @@ RUN apt-get update \
         libcurl3t64-gnutls \
     && apt-get purge -y git \
     && rm -rf /var/lib/apt/lists/*
+
+# The base image ships pyjwt and urllib3 in its own runtime environment as well
+# as in /deps/backend/.venv. PYTHONPATH puts the venv first, so the venv copies
+# are the ones that import; matching the base copies to the same versions keeps
+# what a scan reports identical to what runs. Every dependency installed in this
+# image constrains both packages to <3,>=2, so the venv versions satisfy all of
+# them. This must run before pip is removed below.
+RUN /usr/local/bin/python -m pip install --no-cache-dir --upgrade \
+        "pyjwt==$(/deps/backend/.venv/bin/python -c 'import jwt; print(jwt.__version__)')" \
+        "urllib3==$(/deps/backend/.venv/bin/python -c 'import urllib3; print(urllib3.__version__)')"
 
 ENV PATH="/deps/backend/.venv/bin:$PATH" \
     PYTHONPATH="/deps/backend/.venv/lib/python3.11/site-packages:/deps/backend" \
@@ -83,7 +93,7 @@ EXPOSE 8000
 
 USER 10001:10001
 
-FROM python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS development
+FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS development
 
 ARG APP_UID=10001
 ARG APP_GID=10001
@@ -109,6 +119,13 @@ RUN --mount=type=bind,from=uv_cache,target=/root/.cache/uv,rw \
     --mount=type=secret,id=host_ca,target=/tmp/host-ca-certificates.crt \
     SSL_CERT_FILE=/tmp/host-ca-certificates.crt \
     uv sync --frozen --no-install-project --extra dev
+
+# The base interpreter's setuptools vendors its own wheel and jaraco.context,
+# which lag the patched releases. Nothing here imports them: the dev extra
+# installs setuptools into /app/.venv, and /app/.venv/bin comes first on PATH.
+RUN rm -rf \
+        /usr/local/lib/python*/site-packages/setuptools* \
+        /usr/local/lib/python*/site-packages/wheel*
 
 RUN groupadd --system --gid "$APP_GID" nexus \
     && useradd --system --uid "$APP_UID" --gid nexus --home-dir /nonexistent --shell /usr/sbin/nologin nexus \
