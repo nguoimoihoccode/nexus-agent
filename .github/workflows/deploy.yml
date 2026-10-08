@@ -1,0 +1,220 @@
+name: Deploy demo
+
+# Runs after "Quality checks" goes green on main, so nothing reaches the host
+# that has not passed the repository's own gate (unit tests, PostgreSQL
+# integration, image build and smoke, and the HIGH/CRITICAL vulnerability
+# policy).
+#
+# workflow_run executes in the context of the default branch and holds the
+# repository secrets, including when it was triggered by a pull request. The
+# two conditions below are therefore both required: the trigger is limited to
+# the main branch, and the job only runs on a successful conclusion.
+on:
+  workflow_run:
+    workflows: ["Quality checks"]
+    types: [completed]
+    branches: [main]
+
+# Never cancel a deploy that has already started: an interrupted run can leave
+# the host on a half-updated tag.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      # The triggering commit, which is not github.sha in a workflow_run event.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Resolve the image tag and registry prefix
+        id: meta
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # GHCR paths are lowercase, and an uppercase repository name would
+          # otherwise be rejected at push time.
+          prefix="${REGISTRY}/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          printf 'prefix=%s\n' "$prefix" >> "$GITHUB_OUTPUT"
+          printf 'tag=sha-%s\n' "${HEAD_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to the container registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" |
+            docker login "$REGISTRY" -u "$ACTOR" --password-stdin
+
+      - name: Build and push the backend image
+        env:
+          PREFIX: ${{ steps.meta.outputs.prefix }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nexus-uv-cache
+          # The development target is the one the demo runs: plain Python with
+          # `langgraph dev`, which needs no LangGraph Cloud license key.
+          docker build \
+            --target development \
+            --build-context uv_cache=/tmp/nexus-uv-cache \
+            --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt \
+            --tag "${PREFIX}/backend:${TAG}" \
+            --tag "${PREFIX}/backend:latest" \
+            backend
+          docker push "${PREFIX}/backend:${TAG}"
+          docker push "${PREFIX}/backend:latest"
+
+      - name: Build and push the frontend image
+        env:
+          PREFIX: ${{ steps.meta.outputs.prefix }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # No NGINX_BACKEND_UPSTREAM argument: the image default is
+          # http://backend:2024, which is the development stage's port.
+          docker build \
+            --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt \
+            -f frontend/Dockerfile \
+            --tag "${PREFIX}/frontend:${TAG}" \
+            --tag "${PREFIX}/frontend:latest" \
+            .
+          docker push "${PREFIX}/frontend:${TAG}"
+          docker push "${PREFIX}/frontend:latest"
+
+      - name: Build and push the AI-Trader worker image
+        env:
+          PREFIX: ${{ steps.meta.outputs.prefix }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker build \
+            --secret id=host_ca,src=/etc/ssl/certs/ca-certificates.crt \
+            --tag "${PREFIX}/ai-trader-worker:${TAG}" \
+            --tag "${PREFIX}/ai-trader-worker:latest" \
+            ai-trader-worker
+          docker push "${PREFIX}/ai-trader-worker:${TAG}"
+          docker push "${PREFIX}/ai-trader-worker:latest"
+
+      # Cheap insurance. Quality checks smokes the production target; the demo
+      # runs the development target, which is built here for the first time.
+      - name: Smoke the backend image before publishing it
+        env:
+          PREFIX: ${{ steps.meta.outputs.prefix }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --env DEEPSEEK_API_KEY=deploy-smoke \
+            --entrypoint python "${PREFIX}/backend:${TAG}" \
+            -c 'import source.http_app'
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Secrets and variables come from this Environment. Attach a required
+    # reviewer to it if deploys should wait for a manual approval.
+    environment: demo
+    env:
+      VPS_HOST: ${{ vars.VPS_HOST }}
+      VPS_USER: ${{ vars.VPS_USER }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Configure the deploy key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ vars.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          # Pinning the host key is preferred; scanning is the fallback and
+          # trusts whatever answers on the first connection.
+          if [ -n "${VPS_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          else
+            ssh-keyscan -H "$VPS_HOST" > "$HOME/.ssh/known_hosts" 2>/dev/null
+          fi
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Read the tag currently deployed
+        id: current
+        run: |
+          set -euo pipefail
+          deployed="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
+            'grep -E "^NEXUS_IMAGE_TAG=" /opt/nexus/nexus-agent/.env 2>/dev/null | cut -d= -f2' \
+            || true)"
+          printf 'tag=%s\n' "$deployed" >> "$GITHUB_OUTPUT"
+
+      - name: Stage the runtime environment on the host
+        env:
+          DEMO_ENV: ${{ secrets.DEMO_ENV }}
+        run: |
+          set -euo pipefail
+          # Written over stdin so the value never appears in a command line,
+          # and created with umask 077 in the deploy user's home.
+          printf '%s\n' "$DEMO_ENV" | ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
+            'umask 077 && cat > "$HOME/nexus-demo.env"'
+
+      - name: Deploy
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
+            "bash -s -- $(printf '%q' "$TAG")" < deploy/remote-deploy.sh
+
+      - name: Verify the public endpoint
+        id: verify
+        env:
+          BASIC_AUTH_USER: ${{ secrets.DEMO_BASIC_AUTH_USER }}
+          BASIC_AUTH_PASSWORD: ${{ secrets.DEMO_BASIC_AUTH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          url="https://nguoimoihoccode.io.vn/"
+          anonymous=""
+          authenticated=""
+          for _ in $(seq 1 30); do
+            anonymous="$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)"
+            authenticated="$(curl -s -o /dev/null -w '%{http_code}' \
+              -u "$BASIC_AUTH_USER:$BASIC_AUTH_PASSWORD" "$url" || true)"
+            # 401 proves the demo gate is on; 200 through it proves the stack
+            # behind the gate is actually serving.
+            if [ "$anonymous" = "401" ] && [ "$authenticated" = "200" ]; then
+              echo "auth_basic enforced (401) and the stack is serving (200)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "verify failed: anonymous=${anonymous} authenticated=${authenticated}" >&2
+          exit 1
+
+      - name: Roll back to the previous tag
+        if: ${{ failure() && steps.verify.outcome == 'failure' && steps.current.outputs.tag != '' }}
+        env:
+          TAG: ${{ steps.current.outputs.tag }}
+        run: |
+          set -euo pipefail
+          echo "rolling back to ${TAG}"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
+            "bash -s -- $(printf '%q' "$TAG")" < deploy/remote-deploy.sh

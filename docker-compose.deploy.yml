@@ -1,0 +1,40 @@
+# Deployment overlay: run published images instead of building on the host.
+#
+# The deploy workflow builds every image in CI and pushes it to GHCR, so the
+# host only pulls. That matters here because the demo host has roughly 1 GB of
+# free memory, while the backend image alone is over 1 GB and a local build
+# cache has been measured at 2 GB -- building on the host risks OOM-killing the
+# unrelated services already running on it.
+#
+# Each service drops its `build:` section and takes an immutable image tag.
+# The tag is a commit SHA written into .env by deploy/remote-deploy.sh, so
+# rolling back is one edit to NEXUS_IMAGE_TAG followed by `up -d`.
+#
+# Only the services the demo profile starts are listed. The quant workers stay
+# behind the `quant` profile and keep building locally.
+
+services:
+  # The backend image also runs the one-shot migration job.
+  domain-migrate:
+    build: !reset null
+    image: ghcr.io/nguoimoihoccode/nexus-agent/backend:${NEXUS_IMAGE_TAG:?NEXUS_IMAGE_TAG is required}
+
+  backend:
+    build: !reset null
+    image: ghcr.io/nguoimoihoccode/nexus-agent/backend:${NEXUS_IMAGE_TAG:?NEXUS_IMAGE_TAG is required}
+
+  # Both AI-Trader services run the same image with different commands.
+  ai-trader-worker:
+    build: !reset null
+    image: ghcr.io/nguoimoihoccode/nexus-agent/ai-trader-worker:${NEXUS_IMAGE_TAG:?NEXUS_IMAGE_TAG is required}
+
+  ai-trader-worker-refresh:
+    build: !reset null
+    image: ghcr.io/nguoimoihoccode/nexus-agent/ai-trader-worker:${NEXUS_IMAGE_TAG:?NEXUS_IMAGE_TAG is required}
+
+  # No NGINX_BACKEND_UPSTREAM build argument is passed. The image default is
+  # http://backend:2024, which is the port the development stage listens on; the
+  # beta overlay overrides it to 8000 because that stage listens there.
+  frontend:
+    build: !reset null
+    image: ghcr.io/nguoimoihoccode/nexus-agent/frontend:${NEXUS_IMAGE_TAG:?NEXUS_IMAGE_TAG is required}

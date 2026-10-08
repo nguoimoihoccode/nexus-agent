@@ -1,0 +1,142 @@
+# Single-node demo overlay.
+#
+# This profile runs the backend's `development` build stage, which serves the
+# product with `langgraph dev`. That is the open-source development runtime: it
+# needs no LangGraph Cloud license key and no LangSmith API key, which is why
+# this is the overlay that can run on a host that has neither. It is not a
+# supported production posture -- see SECURITY.md.
+#
+# SECURITY -- read before publishing this profile anywhere.
+# `development` mode is trusted-local only. With NEXUS_ENV=development and no
+# OIDC issuer, backend/source/security/auth.py grants every request the
+# development admin identity, and NEXUS_BROWSER_SESSION_AUTH=disabled makes
+# /auth/login redirect straight to /chat without a credential check. The
+# frontend therefore stays bound to loopback, and any ingress in front of it
+# must authenticate. deploy/nginx/nguoimoihoccode.io.vn.conf adds HTTP basic
+# auth for exactly this reason. Do not expose this profile without an
+# equivalent gate.
+#
+# The two quant workers build multi-gigabyte qlib and OpenBB dependency trees
+# and are not needed for the demo, so they sit behind the `quant` profile and
+# are off by default. The supervisor still registers their agents; their tools
+# return a structured error while the workers are absent.
+#
+# Resource ceilings mirror docker-compose.beta.yml: sized for a demo on a small
+# host, not for real users. They are ceilings, not reservations. Every ceiling
+# keeps its ${VAR:-default} form so a single service can be raised from .env
+# without editing this file.
+
+services:
+  postgres:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for the demo}
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-nexus_agent}
+    ports: !reset []
+    user: postgres
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=16m,uid=70,gid=70,mode=0775
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-256m}
+    cpus: ${POSTGRES_CPU_LIMIT:-0.5}
+    pids_limit: ${POSTGRES_PIDS_LIMIT:-200}
+
+  domain-migrate:
+    environment:
+      POSTGRES_URI: postgresql://${POSTGRES_USER:-nexus}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for the demo}@postgres:5432/${POSTGRES_DB_NAME:-nexus_agent}?sslmode=disable
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=256m,uid=10001,gid=10001,mode=1777
+    mem_limit: ${DOMAIN_MIGRATE_MEMORY_LIMIT:-192m}
+    cpus: ${DOMAIN_MIGRATE_CPU_LIMIT:-0.25}
+    pids_limit: ${DOMAIN_MIGRATE_PIDS_LIMIT:-128}
+
+  backend:
+    # The base profile reads ./backend/.env. The demo deployment keeps one file
+    # per host, so this service takes its configuration from the compose
+    # environment instead and the file is not required to exist.
+    env_file: !reset []
+    environment:
+      NEXUS_ENV: development
+      NEXUS_BROWSER_SESSION_AUTH: disabled
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY is required for the demo}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      # The AI-Trader worker answers 503 on its protected routes when no token
+      # is configured, so the demo supplies one shared value to both sides.
+      AI_TRADER_TOKEN: ${AI_TRADER_TOKEN:-}
+    # The base profile waits on both quant workers. They are behind the `quant`
+    # profile here, and Compose starts a profiled dependency of an active
+    # service, so the list is replaced rather than merged.
+    depends_on: !override
+      domain-migrate:
+        condition: service_completed_successfully
+      ai-trader-worker:
+        condition: service_healthy
+    # `langgraph dev` keeps local state under .langgraph_api in its working
+    # directory, so this service intentionally does not set read_only: true the
+    # way the beta profile does. The basic-auth ingress is the compensating
+    # control; the beta OIDC profile is the one that runs read-only.
+    user: "10001:10001"
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=256m,uid=10001,gid=10001,mode=1777
+    mem_limit: ${BACKEND_MEMORY_LIMIT:-512m}
+    cpus: ${BACKEND_CPU_LIMIT:-0.5}
+    pids_limit: ${BACKEND_PIDS_LIMIT:-256}
+
+  ai-trader-worker:
+    env_file: !reset []
+    environment:
+      NEXUS_ENV: development
+      AI_TRADER_TOKEN: ${AI_TRADER_TOKEN:-}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=128m,uid=10001,gid=10001,mode=1777
+    mem_limit: ${AI_TRADER_MEMORY_LIMIT:-128m}
+    cpus: ${AI_TRADER_CPU_LIMIT:-0.25}
+    pids_limit: ${AI_TRADER_PIDS_LIMIT:-128}
+
+  ai-trader-worker-refresh:
+    env_file: !reset []
+    environment:
+      NEXUS_ENV: development
+      AI_TRADER_TOKEN: ${AI_TRADER_TOKEN:-}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+    user: "10001:10001"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=128m,uid=10001,gid=10001,mode=1777
+    mem_limit: ${AI_TRADER_REFRESH_MEMORY_LIMIT:-128m}
+    cpus: ${AI_TRADER_REFRESH_CPU_LIMIT:-0.25}
+    pids_limit: ${AI_TRADER_REFRESH_PIDS_LIMIT:-128}
+
+  frontend:
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=64m,uid=101,gid=101,mode=1777
+      - /etc/nginx/conf.d:size=16m,uid=101,gid=101,mode=0755
+      - /var/cache/nginx:size=64m,uid=101,gid=101,mode=0755
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-64m}
+    cpus: ${FRONTEND_CPU_LIMIT:-0.125}
+    pids_limit: ${FRONTEND_PIDS_LIMIT:-64}
+
+  quant-worker:
+    profiles: ["quant"]
+
+  quant-data-worker:
+    profiles: ["quant"]

@@ -109,6 +109,64 @@ class SecurityInventoryTests(unittest.TestCase):
         self.assertNotIn('"redis', backend_project)
         self.assertNotIn('"boto3', worker_project)
 
+    def test_demo_profile_keeps_quant_workers_off_the_default_start_set(self) -> None:
+        compose = (REPO_ROOT / "docker-compose.demo.yml").read_text(encoding="utf-8")
+
+        # Compose starts a profiled service when an active service depends on
+        # it, so the backend's inherited depends_on list has to be replaced
+        # rather than merged, and the base profile's backend env_file dropped.
+        self.assertIn('profiles: ["quant"]', compose)
+        self.assertIn("depends_on: !override", compose)
+        self.assertIn("env_file: !reset []", compose)
+        self.assertIn("NEXUS_BROWSER_SESSION_AUTH: disabled", compose)
+        for required in ("read_only: true", "no-new-privileges:true", "pids_limit:"):
+            self.assertIn(required, compose)
+
+    def test_deploy_overlay_runs_published_images_instead_of_building(self) -> None:
+        compose = (REPO_ROOT / "docker-compose.deploy.yml").read_text(encoding="utf-8")
+
+        # Every build section is cleared by the overlay, so a missing `context:`
+        # is what proves no service can silently fall back to a local build.
+        self.assertNotIn("context:", compose)
+        self.assertEqual(compose.count("build: !reset null"), 5)
+        self.assertEqual(
+            compose.count("${NEXUS_IMAGE_TAG:?NEXUS_IMAGE_TAG is required}"), 5
+        )
+        # No NGINX_BACKEND_UPSTREAM key: the image default targets the
+        # development stage's port, and the beta override would point at a port
+        # the demo backend does not listen on.
+        self.assertNotIn("NGINX_BACKEND_UPSTREAM:", compose)
+
+    def test_deploy_workflow_requires_a_green_run_and_proves_the_gate(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/deploy.yml").read_text(
+            encoding="utf-8"
+        )
+
+        # workflow_run holds repository secrets even when triggered by a pull
+        # request, so both the branch filter and the conclusion check are load
+        # bearing.
+        self.assertIn("workflows: [\"Quality checks\"]", workflow)
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
+        # A started deploy is never cancelled halfway.
+        self.assertIn("cancel-in-progress: false", workflow)
+        # Verification must fail when the development admin identity becomes
+        # reachable without a credential, not only when the stack is down.
+        self.assertIn('"$anonymous" = "401"', workflow)
+        self.assertIn('"$authenticated" = "200"', workflow)
+
+    def test_demo_ingress_authenticates_before_reaching_development_admin(self) -> None:
+        vhost = (
+            REPO_ROOT / "deploy/nginx/nguoimoihoccode.io.vn.conf"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('auth_basic "Nexus demo";', vhost)
+        self.assertIn("auth_basic_user_file /etc/nginx/nexus-demo.htpasswd;", vhost)
+        self.assertIn("proxy_pass http://127.0.0.1:8080;", vhost)
+        # HSTS is remembered for its whole max-age, so it stays commented until
+        # HTTPS is confirmed for the complete hostname.
+        self.assertIn("# add_header Strict-Transport-Security", vhost)
+
 
 if __name__ == "__main__":
     unittest.main()

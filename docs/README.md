@@ -8,7 +8,7 @@ only the supported local-development and single-node private-beta product.
 | Type | Use it for | Documents |
 | --- | --- | --- |
 | Architecture | Runtime boundaries, ownership, durable decisions | [System overview](architecture/overview.md) |
-| Guides | Setup, checks, and evidence of workflow stability | [Development](guides/development.md), [Product validation](guides/product-validation.md) |
+| Guides | Setup, checks, and evidence of workflow stability | [Development](guides/development.md), [Deployment](guides/deployment.md), [Product validation](guides/product-validation.md) |
 | Workflows | Supported business flows and agent boundaries | [Quant research](workflows/quant-research.md), [AI-Trader](workflows/ai-trader.md) |
 | Reference | Machine-readable cross-service fixtures | [Canonical identity v1](reference/canonical-identity-v1.json) |
 | PDF | Bản tổng quan toàn hệ thống bằng tiếng Việt, có ví dụ nhập môn | [Nexus Agent — Toàn cảnh hệ thống](pdf/nexus-agent-toan-canh-he-thong-vi.pdf) |
@@ -22,6 +22,7 @@ quant-data-worker/   OpenBB ingestion and immutable dataset revisions
 quant-worker/        Qlib experiment jobs and verified local artifacts
 ai-trader-worker/    Cached market intelligence and publication adapter
 evaluation/          Versioned deterministic product-validation manifest
+deploy/              Host setup, nginx ingress, and the remote deploy script
 scripts/             Architecture, validation, and security gates
 ```
 

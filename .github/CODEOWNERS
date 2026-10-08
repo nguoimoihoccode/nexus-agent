@@ -7,4 +7,7 @@
 /backend/source/security/ @nguoimoihoccode
 /docker-compose.yml @nguoimoihoccode
 /docker-compose.beta.yml @nguoimoihoccode
+/docker-compose.demo.yml @nguoimoihoccode
+/docker-compose.deploy.yml @nguoimoihoccode
+/deploy/ @nguoimoihoccode
 /scripts/security-audit.sh @nguoimoihoccode
