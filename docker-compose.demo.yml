@@ -30,9 +30,14 @@
 #
 # Started by default: postgres 256m, backend 384m, ai-trader-worker 128m,
 # frontend 64m -- 832m of ceiling over four running containers. domain-migrate
-# (192m) runs once and exits. That is deliberately under the sum the beta
-# profile carries, because the deploy overlay targets a host with about 1 GB
-# free and idle usage is a fraction of these numbers.
+# (192m) runs once and exits. Idle usage is a fraction of those numbers; the
+# beta profile measured postgres at 39 MB, ai-trader-worker at 53 MB, and the
+# frontend at 3.9 MB. The ceilings are what this budget has to survive.
+#
+# It is sized against the host the deploy overlay targets, which has about 1 GB
+# available to this stack because an unrelated project already holds the rest.
+# That project is not containerised, so its share cannot be capped and the demo
+# has to yield to it rather than the other way round.
 
 services:
   postgres:
@@ -122,11 +127,15 @@ services:
     cpus: ${AI_TRADER_CPU_LIMIT:-0.25}
     pids_limit: ${AI_TRADER_PIDS_LIMIT:-128}
 
-  # Off by default, like the quant workers. It is a second copy of the worker
-  # running the periodic market-data refresh, and on a host this small its
-  # scheduled job competes with the backend for the memory the backend needs
-  # most. Enable with `--profile refresh` after raising the ceilings above; the
-  # demo then shows whatever market data the worker last held, not fresh data.
+  # Off by default, like the quant workers. It runs the periodic market-data
+  # refresh, so leaving it off means the demo shows whatever the worker last
+  # held rather than fresh data.
+  #
+  # Enabling it is cheap: the beta profile measured this service at 33 MB idle
+  # against a 128m ceiling. It stays off to leave that room to the unrelated
+  # project already running on the demo host, which is not containerised and so
+  # cannot be capped. Turn it on with `--profile refresh` when fresh market data
+  # is worth the headroom.
   #
   # The block is kept whole rather than deleted so that enabling the profile
   # behaves the same way the other overrides do.

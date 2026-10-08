@@ -63,11 +63,13 @@ them.
 
 The default start set is therefore five services: `postgres`, `domain-migrate`,
 `backend`, `ai-trader-worker`, and `frontend`, with 832 MB of memory ceiling
-between the four that keep running. The market-data refresh worker sits behind
-the `refresh` profile, off by default, so the demo shows the market data the
-worker last held rather than fresh data. Enable it with `--profile refresh` only
-after raising the ceilings; it is a second copy of a worker the backend cannot
-afford to lose memory to.
+between the four that keep running. Idle usage is far below that — the beta
+profile measured most of these at tens of megabytes. The market-data refresh
+worker sits behind the `refresh` profile, off by default, so the demo shows the
+market data the worker last held rather than fresh data. Enabling it costs
+little on its own, around 33 MB idle, but the demo is a guest on this host: an
+unrelated project holds most of the memory and is not containerised, so its
+share cannot be capped and the demo yields to it.
 
 Every ceiling keeps its `${VAR:-default}` form, so one service can be raised
 from `DEMO_ENV` without editing a file. Check the host before the first deploy —
