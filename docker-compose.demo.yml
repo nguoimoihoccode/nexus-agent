@@ -79,6 +79,19 @@ services:
       NEXUS_ENV: development
       NEXUS_BROWSER_SESSION_AUTH: disabled
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY is required for the demo}
+      # Where the model is served, and which model to ask for. The backend
+      # builds its client through langchain's `deepseek:` provider, which reads
+      # DEEPSEEK_API_BASE from the environment and falls back to DeepSeek's own
+      # API when it is absent.
+      #
+      # Both are required rather than defaulted, because both failure modes are
+      # silent: an *empty* base URL does not fall back to the provider default,
+      # it makes the client build relative URLs like `/chat/completions`, and an
+      # unset model falls back to the repository default, which names a model no
+      # gateway is obliged to serve. Required means the deploy stops at `pull`
+      # with a named variable instead of at the first chat request.
+      DEEPSEEK_API_BASE: ${DEEPSEEK_API_BASE:?DEEPSEEK_API_BASE is required for the demo}
+      MODEL: ${MODEL:?MODEL is required for the demo}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       # The AI-Trader worker answers 503 on its protected routes when no token
       # is configured, so the demo supplies one shared value to both sides.

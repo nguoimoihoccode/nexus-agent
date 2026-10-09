@@ -228,6 +228,23 @@ class SecurityInventoryTests(unittest.TestCase):
         self.assertIn('>> "$AUTHORIZED_KEYS"', script)
         self.assertIn("ssh-keygen -lf", script)
 
+    def test_demo_model_endpoint_is_configurable_and_required(self) -> None:
+        compose = (REPO_ROOT / "docker-compose.demo.yml").read_text(encoding="utf-8")
+
+        # The backend reaches the model through langchain's `deepseek:`
+        # provider, which reads DEEPSEEK_API_BASE from the environment and
+        # otherwise calls DeepSeek's own API. The demo overlay is the only
+        # place that can hand it a gateway, and both values must be required
+        # rather than defaulted: an empty base URL makes the client build
+        # relative URLs instead of falling back, and an unset model falls back
+        # to a repository default that no gateway is obliged to serve.
+        self.assertIn("${DEEPSEEK_API_BASE:?", compose)
+        self.assertIn("${MODEL:?", compose)
+
+        template = (REPO_ROOT / "deploy/.env.example").read_text(encoding="utf-8")
+        self.assertIn("MODEL=", template)
+        self.assertIn("DEEPSEEK_API_BASE=", template)
+
     def test_demo_ingress_authenticates_before_reaching_development_admin(self) -> None:
         vhost = (
             REPO_ROOT / "deploy/nginx/nguoimoihoccode.io.vn.conf"
