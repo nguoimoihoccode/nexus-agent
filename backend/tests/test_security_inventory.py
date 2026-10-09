@@ -1,6 +1,7 @@
 """Repository-level security assertions for the private-beta baseline."""
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -189,6 +190,30 @@ class SecurityInventoryTests(unittest.TestCase):
         # reachable without a credential, not only when the stack is down.
         self.assertIn('"$anonymous" = "401"', workflow)
         self.assertIn('"$authenticated" = "200"', workflow)
+
+    def test_deploy_gate_reads_a_variable_the_job_can_actually_see(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/deploy.yml").read_text(
+            encoding="utf-8"
+        )
+        job = re.search(
+            r"\n  deploy:\n(.*?)(?=\n  [a-z][a-z0-9_-]*:\n|\Z)", workflow, re.S
+        )
+        self.assertIsNotNone(job, "no deploy job found")
+        body = job.group(1)
+        gate = re.search(r"\n    if: (.+)", body)
+        self.assertIsNotNone(gate, "the deploy job has no job-level gate")
+
+        # GitHub evaluates a job-level `if` before it assigns `environment:`,
+        # so the `vars` context there holds repository variables only.
+        # Gating on VPS_HOST, which the setup guide puts in the Environment,
+        # made the condition permanently false: the job reported "skipped" on
+        # every run and the deploy never happened, with nothing saying why.
+        condition = gate.group(1)
+        self.assertNotIn("VPS_HOST", condition)
+        self.assertIn("vars.DEPLOY_ENABLED", condition)
+        # Secrets still come from the Environment, which is what makes a
+        # separately scoped flag necessary rather than redundant.
+        self.assertIn("environment: demo", body)
 
     def test_demo_ingress_authenticates_before_reaching_development_admin(self) -> None:
         vhost = (

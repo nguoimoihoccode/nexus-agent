@@ -94,18 +94,33 @@ The `-t` matters. Piping the script in with
 stdin, where the prompts would consume the remaining lines instead of reading an
 answer, and `htpasswd` could not ask for a password at all.
 
-Then create a GitHub Environment named `demo` and fill it in. The script prints
-the same list when it finishes.
+Then create a GitHub Environment named `demo` and fill it in, plus one
+repository-scoped variable that cannot live there. The script prints the same
+list when it finishes.
 
-| Kind | Name | Value |
-| --- | --- | --- |
-| Secret | `VPS_SSH_KEY` | Private half of a dedicated deploy key |
-| Secret | `DEMO_ENV` | A filled-in copy of `deploy/.env.example` |
-| Secret | `DEMO_BASIC_AUTH_USER` | The username chosen during setup |
-| Secret | `DEMO_BASIC_AUTH_PASSWORD` | The matching password |
-| Variable | `VPS_HOST` | Host address |
-| Variable | `VPS_USER` | `deploy` |
-| Variable | `VPS_KNOWN_HOSTS` | `ssh-keyscan -H <host>` output |
+| Kind | Scope | Name | Value |
+| --- | --- | --- | --- |
+| Variable | Repository | `DEPLOY_ENABLED` | `true` |
+| Secret | Environment `demo` | `VPS_SSH_KEY` | Private half of a dedicated deploy key |
+| Secret | Environment `demo` | `DEMO_ENV` | A filled-in copy of `deploy/.env.example` |
+| Secret | Environment `demo` | `DEMO_BASIC_AUTH_USER` | The username chosen during setup |
+| Secret | Environment `demo` | `DEMO_BASIC_AUTH_PASSWORD` | The matching password |
+| Variable | Environment `demo` | `VPS_HOST` | Host address |
+| Variable | Environment `demo` | `VPS_USER` | `deploy` |
+| Variable | Environment `demo` | `VPS_KNOWN_HOSTS` | `ssh-keyscan -H <host>` output |
+
+`DEPLOY_ENABLED` is the one value that is not in the Environment, and that is
+deliberate rather than an oversight. It is the only thing the deploy job's own
+gate reads, and GitHub evaluates a job-level `if` *before* it assigns
+`environment:`, so the `vars` context there holds repository variables only.
+The gate was originally written against `VPS_HOST`; because that value lives in
+the Environment, the condition was permanently false and the job reported
+"skipped" on every run — the deploy never happened and nothing said why.
+Moving this flag into the Environment would disable the deploy, not secure it.
+
+Everything scoped to the Environment is read while the job runs, after the
+Environment has been assigned, so `env:` can use environment variables even
+though `if:` cannot.
 
 The deploy key is dedicated to this purpose and separate from any interactive
 account. Prefer `VPS_KNOWN_HOSTS` over letting the workflow scan on first

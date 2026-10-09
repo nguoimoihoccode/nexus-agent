@@ -129,16 +129,27 @@ jobs:
 
   deploy:
     needs: publish
-    # Skip rather than fail until the Environment is configured. The check is
-    # the one value setup-vps.sh tells you to add first, so an unconfigured
-    # repository shows a clear "skipped" instead of a red run on every push.
-    if: ${{ vars.VPS_HOST != '' }}
+    # Skip rather than fail until deploys are switched on, so an unconfigured
+    # repository or a fork shows a clear "skipped" instead of a red run on
+    # every push.
+    #
+    # The gate has to read a REPOSITORY variable. GitHub evaluates a job-level
+    # `if` before it assigns the `environment:` below, so the `vars` context
+    # here holds repository variables only and environment variables are not
+    # in scope yet. Gating on VPS_HOST, which lives in the Environment, made
+    # this condition permanently false and the job silently skipped -- the
+    # deploy never ran, and nothing said why. Keep the flag out of the
+    # Environment or this breaks the same way again.
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Secrets and variables come from this Environment. Attach a required
     # reviewer to it if deploys should wait for a manual approval.
     environment: demo
     env:
+      # Everything here resolves when the job runs, by which point the
+      # Environment is assigned, so environment variables are correct in `env`
+      # even though they are not in `if` above.
       VPS_HOST: ${{ vars.VPS_HOST }}
       VPS_USER: ${{ vars.VPS_USER }}
     steps:

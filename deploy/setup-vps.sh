@@ -19,8 +19,9 @@
 # answer the first two prompts, and pipe the htpasswd password in when
 # NEXUS_BASIC_AUTH_PASSWORD is set.
 #
-# After it finishes you have to add four values to GitHub before the deploy
-# workflow can run. The script prints the exact list at the end.
+# After it finishes you have to add the values it prints to GitHub before the
+# deploy workflow can run. The list at the end names every one of them and
+# says which scope each belongs to.
 
 set -euo pipefail
 
@@ -216,6 +217,9 @@ cat <<EOF
 
 Add these to GitHub before the first deploy:
 
+  Repository -> Settings -> Secrets and variables -> Actions -> Variables
+      DEPLOY_ENABLED            true
+
   Repository -> Settings -> Environments -> New environment -> "demo"
     Secrets
       VPS_SSH_KEY               private half of the deploy key
@@ -226,6 +230,11 @@ Add these to GitHub before the first deploy:
       VPS_HOST                  116.118.6.139
       VPS_USER                  ${DEPLOY_USER}
       VPS_KNOWN_HOSTS           output of: ssh-keyscan -H 116.118.6.139
+
+DEPLOY_ENABLED is repository-scoped on purpose, not a typo. The deploy job's
+gate runs before GitHub assigns the environment, so it cannot read an
+environment variable. Putting this flag in "demo" leaves the deploy
+permanently skipped and never explains why.
 
 Generate the deploy key with:
   ssh-keygen -t ed25519 -C nexus-deploy -f ~/.ssh/nexus_deploy -N ''
