@@ -12,3 +12,38 @@ vulnerabilities:
       digest published for this tag. Re-check on the next base image bump and
       drop this entry once that build carries google.golang.org/grpc 1.83.2 or
       newer.
+
+  - id: CVE-2026-78667
+    paths:
+      - app/datadog-init
+      - usr/local/bin/core-api-grpc
+    expired_at: 2027-01-15
+    statement: >-
+      Temporary exception owned by the Nexus platform/security maintainer. A
+      net/http denial of service in the Go standard library, present in the two
+      Go binaries langchain/langgraph-api:3.11 links statically, so this
+      repository cannot rebuild them the way it rebuilds its own images. The
+      remedy the development guide asks for before a suppression -- repinning
+      the base image -- was tried and does not exist yet: the digest that tag
+      serves today still reports go1.26.8 for usr/local/bin/core-api-grpc and
+      go1.26.7 for app/datadog-init, both short of the 1.26.9 that fixes this,
+      and every published tag comes from the same build. Only the production
+      stage carries these binaries; the demo serves the development stage and
+      is not exposed. Drop this entry once the base image reports Go 1.26.9 or
+      newer.
+
+  - id: CVE-2026-97031
+    paths:
+      - app/datadog-init
+      - usr/local/bin/core-api-grpc
+    expired_at: 2027-01-15
+    statement: >-
+      Temporary exception owned by the Nexus platform/security maintainer. A
+      crypto/tls denial of service in the Go standard library, in the same two
+      statically linked binaries from langchain/langgraph-api:3.11 and
+      suppressed for the same reason as CVE-2026-78667 above: the newest digest
+      published for the tag still reports Go 1.26.7 and 1.26.8, neither of them
+      the 1.26.9 that fixes this, so a repin cannot clear it. Only the
+      production stage carries these binaries; the demo serves the development
+      stage and is not exposed. Drop this entry once the base image reports Go
+      1.26.9 or newer.
