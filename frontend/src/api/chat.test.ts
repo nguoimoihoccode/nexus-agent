@@ -145,7 +145,7 @@ test("consumeChatStream aborts a stream that exceeds its total byte budget", asy
 
   await assert.rejects(
     () => consumeChatStream(stream.getReader(), { onToken: () => {}, onProgress: () => {} }),
-    /giới hạn 8 MiB/,
+    new RegExp(`giới hạn ${MAX_SSE_STREAM_BYTES / (1024 * 1024)} MiB`),
   );
   assert.equal(cancelled, true);
 });

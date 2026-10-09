@@ -194,7 +194,9 @@ export async function consumeChatStream(
     totalStreamBytes += chunk.byteLength;
     if (totalStreamBytes > MAX_SSE_STREAM_BYTES) {
       await reader.cancel("SSE stream exceeded the configured size limit.");
-      throw new Error("Backend stream vượt quá giới hạn 8 MiB.");
+      // Derived from the constant so the message cannot drift from the limit
+      // it reports when that limit is raised again.
+      throw new Error(`Backend stream vượt quá giới hạn ${MAX_SSE_STREAM_BYTES / (1024 * 1024)} MiB.`);
     }
     pendingFrameBytes += chunk.byteLength;
     buffer += decoder.decode(chunk, { stream: !done });
