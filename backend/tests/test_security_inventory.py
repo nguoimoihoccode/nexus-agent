@@ -215,6 +215,19 @@ class SecurityInventoryTests(unittest.TestCase):
         # separately scoped flag necessary rather than redundant.
         self.assertIn("environment: demo", body)
 
+    def test_setup_script_repairs_authorized_keys_holding_the_wrong_key(self) -> None:
+        script = (REPO_ROOT / "deploy/setup-vps.sh").read_text(encoding="utf-8")
+
+        # The old version wrote authorized_keys only when nothing was
+        # authorized yet, so a host that already trusted a different key kept
+        # it forever: the script reported success, and the deploy failed much
+        # later with "Permission denied (publickey)". The key has to be
+        # appended when it is missing, and what the host accepts has to be
+        # printed, or the mismatch stays invisible until a red deploy run.
+        self.assertNotIn('> "/home/${DEPLOY_USER}/.ssh/authorized_keys"', script)
+        self.assertIn('>> "$AUTHORIZED_KEYS"', script)
+        self.assertIn("ssh-keygen -lf", script)
+
     def test_demo_ingress_authenticates_before_reaching_development_admin(self) -> None:
         vhost = (
             REPO_ROOT / "deploy/nginx/nguoimoihoccode.io.vn.conf"

@@ -17,7 +17,9 @@
 #
 # Non-interactive use: set NEXUS_DEPLOY_PUBKEY and NEXUS_BASIC_AUTH_USER to
 # answer the first two prompts, and pipe the htpasswd password in when
-# NEXUS_BASIC_AUTH_PASSWORD is set.
+# NEXUS_BASIC_AUTH_PASSWORD is set. Supplying NEXUS_DEPLOY_PUBKEY is also how a
+# re-run repairs a host whose authorized_keys holds a different key: the key is
+# appended when missing, so the deploy can authenticate afterwards.
 #
 # After it finishes you have to add the values it prints to GitHub before the
 # deploy workflow can run. The list at the end names every one of them and
@@ -67,25 +69,53 @@ if ! id "$DEPLOY_USER" >/dev/null 2>&1; then
 fi
 usermod -aG docker "$DEPLOY_USER"
 install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh"
+AUTHORIZED_KEYS="/home/${DEPLOY_USER}/.ssh/authorized_keys"
 
-if [ ! -s "/home/${DEPLOY_USER}/.ssh/authorized_keys" ]; then
-  if [ -n "${NEXUS_DEPLOY_PUBKEY:-}" ]; then
-    deploy_pubkey="$NEXUS_DEPLOY_PUBKEY"
-  else
-    printf '%s\n' \
-      "No authorized_keys yet for ${DEPLOY_USER}." \
-      "Generate the deploy key locally, then paste the PUBLIC key here:"
-    read -r -p "public key: " deploy_pubkey
-  fi
+# Resolve the key to authorize. NEXUS_DEPLOY_PUBKEY answers this without a
+# terminal; otherwise ask, but only when the host trusts nothing yet, so a
+# re-run against a configured host stays quiet.
+deploy_pubkey="${NEXUS_DEPLOY_PUBKEY:-}"
+if [ -z "$deploy_pubkey" ] && [ ! -s "$AUTHORIZED_KEYS" ]; then
+  printf '%s\n' \
+    "No authorized_keys yet for ${DEPLOY_USER}." \
+    "Generate the deploy key locally, then paste the PUBLIC key here:"
+  read -r -p "public key: " deploy_pubkey
+fi
+
+if [ -n "$deploy_pubkey" ]; then
   case "$deploy_pubkey" in
     ssh-ed25519\ *|ssh-rsa\ *|ecdsa-sha2-*\ *) ;;
     *) die "that does not look like an SSH public key" ;;
   esac
-  printf '%s\n' "$deploy_pubkey" \
-    > "/home/${DEPLOY_USER}/.ssh/authorized_keys"
+  # Match on the key material alone. The trailing comment is free-form and
+  # differs between a key file and a pasted copy, so comparing whole lines
+  # would append a second copy of a key that is already authorized.
+  key_material="$(printf '%s\n' "$deploy_pubkey" | awk '{print $1" "$2}')"
+  present="$(awk '{print $1" "$2}' "$AUTHORIZED_KEYS" 2>/dev/null |
+    grep -xF "$key_material" || true)"
+  if [ -n "$present" ]; then
+    log "the supplied key is already authorized for ${DEPLOY_USER}"
+  else
+    # Appended rather than written, and added when missing rather than only
+    # when the file is empty. The old version wrote this file only when
+    # nothing was authorized, so a host holding the wrong key kept it and the
+    # deploy failed later with "Permission denied (publickey)" -- a red run
+    # reported far from its cause. Appending is also what lets a re-run with
+    # NEXUS_DEPLOY_PUBKEY repair such a host.
+    printf '%s\n' "$deploy_pubkey" >> "$AUTHORIZED_KEYS"
+    log "authorized the supplied key for ${DEPLOY_USER}"
+  fi
 fi
-chmod 600 "/home/${DEPLOY_USER}/.ssh/authorized_keys"
-chown "$DEPLOY_USER:$DEPLOY_USER" "/home/${DEPLOY_USER}/.ssh/authorized_keys"
+
+chmod 600 "$AUTHORIZED_KEYS"
+chown "$DEPLOY_USER:$DEPLOY_USER" "$AUTHORIZED_KEYS"
+
+# Print what this host will actually accept. An authorized_keys file that does
+# not list the deploy key is the entire reason a later run reports
+# "Permission denied (publickey)", and nothing else surfaces the mismatch.
+log "Keys authorized for ${DEPLOY_USER}"
+ssh-keygen -lf "$AUTHORIZED_KEYS" || printf '  %s\n' \
+  "(ssh-keygen is unavailable; compare authorized_keys by hand)"
 
 # ---------------------------------------------------------------------------
 log "Preparing the checkout at ${APP_DIR}"
