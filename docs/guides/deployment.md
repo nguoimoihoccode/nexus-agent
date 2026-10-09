@@ -62,7 +62,7 @@ their qlib and OpenBB dependency trees are large and the demo does not start
 them.
 
 The default start set is therefore five services: `postgres`, `domain-migrate`,
-`backend`, `ai-trader-worker`, and `frontend`, with 832 MB of memory ceiling
+`backend`, `ai-trader-worker`, and `frontend`, with 960 MB of memory ceiling
 between the four that keep running. Idle usage is far below that — the beta
 profile measured most of these at tens of megabytes. The market-data refresh
 worker sits behind the `refresh` profile, off by default, so the demo shows the

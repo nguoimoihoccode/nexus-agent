@@ -28,8 +28,8 @@
 # keeps its ${VAR:-default} form so a single service can be raised from .env
 # without editing this file.
 #
-# Started by default: postgres 256m, backend 384m, ai-trader-worker 128m,
-# frontend 64m -- 832m of ceiling over four running containers. domain-migrate
+# Started by default: postgres 256m, backend 512m, ai-trader-worker 128m,
+# frontend 64m -- 960m of ceiling over four running containers. domain-migrate
 # (192m) runs once and exits. Idle usage is a fraction of those numbers; the
 # beta profile measured postgres at 39 MB, ai-trader-worker at 53 MB, and the
 # frontend at 3.9 MB. The ceilings are what this budget has to survive.
@@ -113,15 +113,25 @@ services:
     cap_drop: [ALL]
     tmpfs:
       - /tmp:size=256m,uid=10001,gid=10001,mode=1777
-    # Demo sizing: 512m -> 384m. The beta figure this mirrors was itself an
-    # estimate for the langgraph-api base image, which could not be started on
-    # the measurement host; the demo runs the `development` stage instead, a
-    # single `langgraph dev` process with no Go core server beside it, so it
-    # needs less. Still a guess, and this is the service a user is most likely
-    # to push hard, so treat an OOM kill here as this ceiling being too low:
-    # raise BACKEND_MEMORY_LIMIT from .env and watch for the kill.
-    mem_limit: ${BACKEND_MEMORY_LIMIT:-384m}
-    cpus: ${BACKEND_CPU_LIMIT:-0.5}
+    # Demo sizing, both figures measured on the deploy host rather than guessed.
+    #
+    # mem 384m -> 512m. The 384m was a guess made before anything had been
+    # measured: it borrowed the beta figure for the langgraph-api base image,
+    # which could not be started on the measurement host. The backend now
+    # measures 264 MiB of that 384 MiB while idle -- about 69%, the tightest
+    # ratio in the stack -- and a long agent run is what pushes it higher.
+    #
+    # cpu 0.5 -> 0.75. Same story, and tighter still: the backend was using 38%
+    # of one core with the demo idle, which is already three quarters of its
+    # 0.5-core ceiling. The host has two cores, and the same long runs are
+    # cpu-bound rather than waiting on I/O.
+    #
+    # The four-container sum is now 960m and 1.625 cores of the host's two,
+    # still inside the ~1 GB this host gives the stack. Treat an OOM kill here
+    # as this ceiling being too low: raise BACKEND_MEMORY_LIMIT from .env and
+    # watch for the kill.
+    mem_limit: ${BACKEND_MEMORY_LIMIT:-512m}
+    cpus: ${BACKEND_CPU_LIMIT:-0.75}
     pids_limit: ${BACKEND_PIDS_LIMIT:-256}
 
   ai-trader-worker:

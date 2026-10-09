@@ -131,7 +131,7 @@ class SecurityInventoryTests(unittest.TestCase):
         # start set the way the quant workers do. Both numbers are a budget the
         # deploy overlay's ~1 GB host depends on, not free parameters.
         self.assertIn('profiles: ["refresh"]', compose)
-        self.assertIn("${BACKEND_MEMORY_LIMIT:-384m}", compose)
+        self.assertIn("${BACKEND_MEMORY_LIMIT:-512m}", compose)
 
         # `pull` takes an explicit service list rather than resolving profiles,
         # so a profiled-off name must not appear there or the deploy fetches an
