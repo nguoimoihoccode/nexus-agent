@@ -155,6 +155,23 @@ class SecurityInventoryTests(unittest.TestCase):
         # the demo backend does not listen on.
         self.assertNotIn("NGINX_BACKEND_UPSTREAM:", compose)
 
+    def test_setup_script_checks_its_tooling_before_it_changes_the_host(self) -> None:
+        script = (REPO_ROOT / "deploy/setup-vps.sh").read_text(encoding="utf-8")
+
+        # setup-vps.sh runs on a host that already serves other sites, so a
+        # missing package has to fail before the script creates the deploy
+        # account, clones the checkout, or reloads nginx -- not after. Both
+        # checks used to sit at their point of use, which meant a host without
+        # apache2-utils got a new user and a checkout before being told no.
+        self.assertLess(
+            script.index("command -v htpasswd"),
+            script.index("Creating the ${DEPLOY_USER} account"),
+        )
+        self.assertLess(
+            script.index("command -v certbot"),
+            script.index('log "running the ACME challenge'),
+        )
+
     def test_deploy_workflow_requires_a_green_run_and_proves_the_gate(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/deploy.yml").read_text(
             encoding="utf-8"

@@ -50,6 +50,11 @@ as_deploy() {
 command -v docker >/dev/null || die "docker is not installed"
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is not installed"
 command -v nginx >/dev/null || die "nginx is not installed"
+# Required unconditionally, so it belongs here rather than where it is used.
+# Everything between this point and that use creates the deploy account and
+# clones the checkout; failing there leaves real work behind over a package
+# that installs in seconds.
+command -v htpasswd >/dev/null || die "htpasswd is missing (install apache2-utils)"
 
 # ---------------------------------------------------------------------------
 log "Creating the ${DEPLOY_USER} account"
@@ -117,7 +122,6 @@ install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/${DEPLOY_USER}"
 
 # ---------------------------------------------------------------------------
 log "Installing the nginx ingress for ${DOMAIN}"
-command -v htpasswd >/dev/null || die "htpasswd is missing (install apache2-utils)"
 
 # Detect which directory this nginx actually loads. Adding a file to a
 # directory that is not included silently does nothing.
@@ -157,12 +161,15 @@ if [ -s "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
   log "certificate already present"
   install -m 644 "$VHOST_SOURCE" "$VHOST_TARGET"
 else
+  # Checked before the bootstrap vhost below. That step writes an nginx config
+  # and reloads the server, so dying after it would leave a host that is already
+  # serving other sites pointed at a placeholder it never asked for.
+  command -v certbot >/dev/null || die "certbot is missing; install it, then re-run"
   log "running the ACME challenge to obtain a certificate"
   install_bootstrap_vhost
   nginx -t
   systemctl reload nginx
 
-  command -v certbot >/dev/null || die "certbot is missing; install it, then re-run"
   certbot certonly --webroot --webroot-path "$ACME_WEBROOT" \
     --non-interactive --agree-tos --register-unsafely-without-email \
     -d "$DOMAIN" \
