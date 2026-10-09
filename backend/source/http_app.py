@@ -339,7 +339,13 @@ async def replay_events(
 async def runtime_topology(request: Request) -> dict:
     _actor_key, permissions = _identity(request)
     _require_permission(permissions, "chat:run")
-    return frontend_safe_topology()
+    # The registry is re-read from disk on every request -- globbing
+    # .deepagents/skills and reading each SKILL.md and AGENTS.md -- so this
+    # belongs on a worker thread. `langgraph dev` runs the event loop under
+    # blockbuster, which raises BlockingError rather than merely stalling when
+    # that scan happens inline, and the endpoint answered 500 on the demo host
+    # for exactly that reason.
+    return await asyncio.to_thread(frontend_safe_topology)
 
 
 @app.get("/v1/memory")

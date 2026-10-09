@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import threading
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ from source.http_app import (
     browser_login,
     browser_logout,
     browser_session,
+    runtime_topology,
 )
 from source.domain import AuthorizationLease
 from source.security.browser_session import (
@@ -306,6 +308,40 @@ class ProductHttpRouteTests(unittest.TestCase):
 
         self.assertEqual(identity, actor)
         self.assertEqual(permissions, {"chat:run", "quant:read"})
+
+    def test_topology_route_scans_the_registry_off_the_event_loop(self) -> None:
+        """The registry scan is blocking and must not run on the loop.
+
+        `langgraph dev` serves the event loop under blockbuster, so re-reading
+        .deepagents/skills inline did not merely stall: blockbuster raised
+        BlockingError on the scandir, and the route answered 500 on the demo
+        host. Asserting a different thread is what keeps the call on a worker,
+        since calling the projection directly still returns the right payload.
+        """
+        request = SimpleNamespace(
+            scope={
+                "user": SimpleNamespace(identity="v1-" + "a" * 64),
+                "auth": ["chat:run"],
+            }
+        )
+        loop_thread = threading.get_ident()
+        call_threads: list[int] = []
+        payload = {"schema_version": "1", "agents": {}, "skills": {}}
+
+        def project() -> dict:
+            call_threads.append(threading.get_ident())
+            return payload
+
+        with patch("source.http_app.frontend_safe_topology", project):
+            result = asyncio.run(runtime_topology(request))
+
+        self.assertEqual(result, payload)
+        self.assertEqual(len(call_threads), 1)
+        self.assertNotEqual(
+            call_threads[0],
+            loop_thread,
+            "the registry scan still runs on the event loop",
+        )
 
     def test_authorization_lease_routes_are_actor_scoped_and_revocable(self) -> None:
         actor = "v1-" + "d" * 64
