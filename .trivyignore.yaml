@@ -47,3 +47,24 @@ vulnerabilities:
       production stage carries these binaries; the demo serves the development
       stage and is not exposed. Drop this entry once the base image reports Go
       1.26.9 or newer.
+
+  - id: CVE-2026-78669
+    paths:
+      - app/datadog-init
+      - usr/local/bin/core-api-grpc
+    expired_at: 2027-01-15
+    statement: >-
+      Temporary exception owned by the Nexus platform/security maintainer. An
+      HTTP/2 denial of service in net/http, reported against both the
+      golang.org/x/net module and the Go standard library in the two binaries
+      langchain/langgraph-api:3.11 links statically, so this repository cannot
+      rebuild them the way it rebuilds its own images. The remedy the
+      development guide asks for before a suppression -- repinning the base
+      image -- was tried again against the digest that tag published on
+      2026-10-09 and still does not exist: that build carries go1.26.8 with
+      golang.org/x/net v0.58.0 in usr/local/bin/core-api-grpc and go1.26.7 with
+      v0.59.0 in app/datadog-init, both short of the 0.60.0 and the Go 1.26.9
+      that fix this. Only the production stage carries these binaries; the demo
+      serves the development stage and is not exposed. Drop this entry once the
+      base image reports Go 1.26.9 or newer and golang.org/x/net 0.60.0 or
+      newer.
