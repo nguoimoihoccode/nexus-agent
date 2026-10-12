@@ -22,7 +22,7 @@ class OpenBBFetcher:
             return cls(import_error=exc)
 
     def fetch_ohlcv(self, request: FetchOhlcvRequest) -> object:
-        obb = self._require_obb()
+        equity = self._require_equity_router(request.provider)
         kwargs = {
             "symbol": ",".join(request.symbols),
             "start_date": request.start_date,
@@ -33,7 +33,7 @@ class OpenBBFetcher:
         if adjustment is not None:
             kwargs["adjustment"] = adjustment
         try:
-            return obb.equity.price.historical(**kwargs)
+            return equity.price.historical(**kwargs)
         except Exception as exc:
             raise WorkerError(
                 "openbb_fetch_failed",
@@ -41,15 +41,33 @@ class OpenBBFetcher:
             ) from exc
 
     def fetch_factor_snapshot(self, symbol: str, provider: str) -> object:
-        obb = self._require_obb()
+        equity = self._require_equity_router(provider)
         try:
-            return obb.equity.fundamental.metrics(symbol=symbol, provider=provider)
+            return equity.fundamental.metrics(symbol=symbol, provider=provider)
         except Exception as exc:
             raise WorkerError(
                 "openbb_factor_fetch_failed",
                 f"OpenBB factor fetch failed for {symbol}: {str(exc)[:300]}",
                 stage="factor_snapshot",
             ) from exc
+
+    def _require_equity_router(self, provider: str) -> object:
+        """Return the SDK's equity router for this provider.
+
+        OpenBB 4 exposes asset-class routers at the top level (``obb.equity``).
+        OpenBB 5 nests them under the provider (``obb.yfinance.equity``), so
+        fall back to that shape when the top-level router is absent.
+        """
+        obb = self._require_obb()
+        equity = getattr(obb, "equity", None)
+        if equity is None:
+            equity = getattr(getattr(obb, provider, None), "equity", None)
+        if equity is None:
+            raise WorkerError(
+                "openbb_unavailable",
+                f"OpenBB exposes no equity router for provider {provider}.",
+            )
+        return equity
 
     def _require_obb(self) -> object:
         if self._import_error is not None:

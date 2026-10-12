@@ -65,6 +65,22 @@ class FakeFactorFetcher:
         return self.frames.get(symbol, pd.DataFrame())
 
 
+class FakeOpenBBNode:
+    """Attribute tree standing in for one level of the OpenBB router."""
+
+    def __init__(self, **children: object) -> None:
+        self.__dict__.update(children)
+
+
+class FakeOpenBBEndpoint:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def __call__(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        return {"kwargs": kwargs}
+
+
 def sample_frame() -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -442,6 +458,64 @@ class QuantDataWorkerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, "openbb_unavailable")
         self.assertIn("OpenBB failed to initialize", raised.exception.message)
+
+    def test_openbb_4_asset_first_router_serves_fetches(self):
+        historical = FakeOpenBBEndpoint()
+        metrics = FakeOpenBBEndpoint()
+        obb = FakeOpenBBNode(
+            equity=FakeOpenBBNode(
+                price=FakeOpenBBNode(historical=historical),
+                fundamental=FakeOpenBBNode(metrics=metrics),
+            )
+        )
+        fetcher = OpenBBFetcher(obb=obb)
+
+        fetcher.fetch_ohlcv(self.ohlcv_request())
+        fetcher.fetch_factor_snapshot("AAPL", "yfinance")
+
+        self.assertEqual(historical.calls[0]["symbol"], "AAPL,MSFT")
+        self.assertEqual(historical.calls[0]["adjustment"], "splits_and_dividends")
+        self.assertEqual(metrics.calls[0], {"symbol": "AAPL", "provider": "yfinance"})
+
+    def test_openbb_5_provider_nested_router_serves_fetches(self):
+        historical = FakeOpenBBEndpoint()
+        metrics = FakeOpenBBEndpoint()
+        obb = FakeOpenBBNode(
+            yfinance=FakeOpenBBNode(
+                equity=FakeOpenBBNode(
+                    price=FakeOpenBBNode(historical=historical),
+                    fundamental=FakeOpenBBNode(metrics=metrics),
+                )
+            )
+        )
+        fetcher = OpenBBFetcher(obb=obb)
+
+        fetcher.fetch_ohlcv(self.ohlcv_request())
+        fetcher.fetch_factor_snapshot("AAPL", "yfinance")
+
+        self.assertEqual(historical.calls[0]["symbol"], "AAPL,MSFT")
+        self.assertEqual(metrics.calls[0], {"symbol": "AAPL", "provider": "yfinance"})
+
+    def test_unknown_provider_reports_openbb_unavailable(self):
+        fetcher = OpenBBFetcher(obb=FakeOpenBBNode(fred=FakeOpenBBNode()))
+
+        with self.assertRaises(WorkerError) as raised:
+            fetcher.fetch_ohlcv(self.ohlcv_request())
+
+        self.assertEqual(raised.exception.code, "openbb_unavailable")
+        self.assertIn("no equity router for provider yfinance", raised.exception.message)
+
+    @staticmethod
+    def ohlcv_request() -> FetchOhlcvRequest:
+        return FetchOhlcvRequest.model_validate(
+            {
+                "symbols": ["AAPL", "MSFT"],
+                "start_date": "2024-01-01",
+                "end_date": "2024-01-05",
+                "provider": "yfinance",
+                "adjustment": "auto",
+            }
+        )
 
     def test_market_validation_rejects_duplicates_and_bad_ohlc(self):
         with tempfile.TemporaryDirectory() as temporary:
