@@ -213,6 +213,13 @@ for a suppression. `.trivyignore.yaml` is the last resort, and only for findings
 repository cannot rebuild — every entry names the affected paths, carries an `expired_at`
 that Trivy enforces, and states what makes it go away.
 
+The dependency audit in `scripts/security-audit.sh` runs `pip-audit` with no severity
+threshold, so an advisory with no release to move to blocks the gate the same way even
+when it is rated below the container policy's high/critical line. Those are waived in
+that script's `audit_suppressions`, one package and one advisory at a time. They carry
+the same obligations as `.trivyignore.yaml` entries, with one difference worth knowing:
+nothing enforces their expiry date, so re-reading them is on the reviewer.
+
 PostgreSQL major upgrades are deliberate compatibility work: Dependabot ignores
 automatic major updates for the Compose image while still proposing supported patch
 and minor image updates.

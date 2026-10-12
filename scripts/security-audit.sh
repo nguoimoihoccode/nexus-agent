@@ -30,16 +30,53 @@ export NEXUS_QUANT_DATA_WORKER_TOKEN="${NEXUS_QUANT_DATA_WORKER_TOKEN:-audit-onl
 export LANGGRAPH_AES_KEY="${LANGGRAPH_AES_KEY:-0123456789abcdef0123456789abcdef}"
 export LANGSMITH_TRACING="${LANGSMITH_TRACING:-false}"
 
+# pip-audit applies no severity threshold, so every advisory it knows about fails
+# the gate, including ones with no release to move to. A package named here is
+# still audited in full; only the advisory it lists is waived. Entries carry the
+# same obligations as .trivyignore.yaml: what the finding is, what was tried, and
+# the condition that removes it. Nothing enforces the expiry date, so dropping
+# the entry is on the reviewer.
+audit_suppressions() {
+  case "$1" in
+    quant-data-worker)
+      # CVE-2025-69872 (PYSEC-2026-2447): DiskCache deserialises its cache with
+      # pickle, so whoever can write to the cache directory can execute code.
+      # OpenBB 5 reaches diskcache 5.6.3 through seven provider packages this
+      # repository never calls -- cftc, ecb, federal-reserve, fred,
+      # government-us, sec and tmx -- while openbb-core and openbb-yfinance do
+      # not depend on it at all. The remedy the development guide asks for ahead
+      # of a suppression does not exist here: 5.6.3 is the newest release,
+      # published 2023-08-31, and OSV carries no fixed version for it. The
+      # exposed surface is narrow because the image runs a read-only root
+      # filesystem and the OpenBB cache lives on tmpfs, so exploitation needs
+      # write access this deployment never hands out. Re-check by 2027-01-15 and
+      # drop this entry once diskcache ships a release that stops pickling by
+      # default, or once openbb stops depending on those provider packages.
+      printf '%s\n' PYSEC-2026-2447
+      ;;
+  esac
+}
+
 audit_python_requirements() {
   local package_dir="$1"
   shift
   local requirements
   requirements="$(mktemp)"
+  local -a waivers=()
+  local advisory
+  while IFS= read -r advisory; do
+    if [[ -n "$advisory" ]]; then
+      waivers+=(--ignore-vuln "$advisory")
+    fi
+  done < <(audit_suppressions "$package_dir")
   (
     cd "$ROOT_DIR/$package_dir"
     uv export --frozen --no-hashes "$@" > "$requirements"
+    # The + expansion keeps `set -u` from rejecting an empty array on the bash
+    # 3.2 that macOS still ships.
     uvx --from pip-audit==2.10.1 pip-audit \
-      --progress-spinner off --timeout 60 --disable-pip --no-deps -r "$requirements"
+      --progress-spinner off --timeout 60 --disable-pip --no-deps \
+      ${waivers[@]+"${waivers[@]}"} -r "$requirements"
   )
   rm -f "$requirements"
 }
