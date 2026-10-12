@@ -41,6 +41,17 @@ updates:
       time: "04:17"
       timezone: Asia/Ho_Chi_Minh
     open-pull-requests-limit: 5
+    # Python is held at its current major on purpose. All four pyproject files
+    # pin requires-python to >=3.11,<3.12 and the backend's runtime image is
+    # langchain/langgraph-api:3.11, so moving the base image to another Python
+    # is a migration rather than a routine update. Dependabot proposed exactly
+    # that as python:3.11 -> python:3.14 and every image that carries a uv sync
+    # step stopped building with "No interpreter found for Python ==3.11.*".
+    # Minor and patch releases inside 3.11 still arrive normally.
+    ignore:
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major
     groups:
       application-base-images:
         patterns:
