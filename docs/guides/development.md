@@ -216,3 +216,12 @@ that Trivy enforces, and states what makes it go away.
 PostgreSQL major upgrades are deliberate compatibility work: Dependabot ignores
 automatic major updates for the Compose image while still proposing supported patch
 and minor image updates.
+
+Dependabot's pip ecosystem edits `pyproject.toml` but never `uv.lock`, so a pull request
+it opens leaves the lockfile stale and fails every job that runs `uv sync --locked`. The
+`Regenerate lockfiles` workflow resolves the bumped manifests on the pull request and
+pushes the locks back. GitHub gives a run triggered by Dependabot a read-only token
+unless the workflow asks for more, and a push made with that token never starts another
+workflow run: the lock commit lands with no check scheduled for it, so close and reopen
+the pull request to run CI. Do not answer that with `@dependabot rebase`, which
+force-pushes the branch from Dependabot's own state and discards the lock commit.
