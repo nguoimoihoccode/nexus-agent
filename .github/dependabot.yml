@@ -12,6 +12,17 @@ updates:
       time: "03:47"
       timezone: Asia/Ho_Chi_Minh
     open-pull-requests-limit: 8
+    # pyarrow is held at its current major because mlflow caps it. mlflow 3.17.0
+    # is the newest release and requires pyarrow>=4.0.0,<26, while Dependabot
+    # proposed pyarrow>=26.0.0,<27 for quant-worker. That pair has no solution at
+    # all: `uv lock` fails with "your project's requirements are unsatisfiable",
+    # which takes every job that runs `uv sync --locked` down with it. Patch and
+    # minor pyarrow releases inside the current major still arrive normally, and
+    # the ceiling can be lifted once mlflow widens its range.
+    ignore:
+      - dependency-name: pyarrow
+        update-types:
+          - version-update:semver-major
     groups:
       python-dependencies:
         patterns:
