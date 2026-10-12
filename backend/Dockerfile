@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.10.6@sha256:2f2ccd27bbf953ec7a9e3153a4563705e41c852a5e1912b438fc44d88d6cb52c AS uv
+FROM ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 AS uv
 
 FROM langchain/langgraph-api:3.11@sha256:5e2279e2a21b627a8f76ef178deb58c612d0124abd0f3349b47402af3231c529 AS production-deps
 
