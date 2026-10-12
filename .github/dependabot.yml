@@ -41,15 +41,29 @@ updates:
       time: "04:17"
       timezone: Asia/Ho_Chi_Minh
     open-pull-requests-limit: 5
-    # Python is held at its current major on purpose. All four pyproject files
-    # pin requires-python to >=3.11,<3.12 and the backend's runtime image is
-    # langchain/langgraph-api:3.11, so moving the base image to another Python
-    # is a migration rather than a routine update. Dependabot proposed exactly
-    # that as python:3.11 -> python:3.14 and every image that carries a uv sync
-    # step stopped building with "No interpreter found for Python ==3.11.*".
-    # Minor and patch releases inside 3.11 still arrive normally.
+    # These three runtime images are held at their current major on purpose, so
+    # Dependabot asks for the next one as a deliberate migration rather than
+    # folding it into a routine weekly bump. Patch and minor releases inside
+    # the current major still arrive normally.
+    #
+    # python: all four pyproject files pin requires-python to >=3.11,<3.12 and
+    # the backend's runtime image is langchain/langgraph-api:3.11. Dependabot
+    # proposed exactly that jump as python:3.11 -> python:3.14, and every image
+    # that carries a uv sync step stopped building with "No interpreter found
+    # for Python ==3.11.*".
+    #
+    # node and nginx: they back the frontend build and the server that serves
+    # it, so a major jump moves the platform the app is compiled and served on.
+    # They follow the same rule the postgres image already has in the
+    # docker-compose ecosystem below.
     ignore:
       - dependency-name: python
+        update-types:
+          - version-update:semver-major
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
+      - dependency-name: nginx
         update-types:
           - version-update:semver-major
     groups:
