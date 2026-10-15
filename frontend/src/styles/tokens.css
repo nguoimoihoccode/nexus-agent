@@ -13,6 +13,9 @@
   --blue: #3478f6;
   --amber: #c57b22;
   --red: #d94b3d;
+  /* --red is for icons and fills; as body text on a light surface it lands at
+     4.2:1 and fails WCAG AA. Use this darker red wherever red is the text. */
+  --red-strong: #b03a2e;
   --violet: #7b61ff;
   --sidebar: #111616;
   --focus-ring: rgba(52, 120, 246, .28);

@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     nexus_replay_poll_milliseconds: PositiveInt = 500
     nexus_approval_ttl_seconds: PositiveInt = 900
     nexus_artifact_download_max_bytes: PositiveInt = 256 * 1024 * 1024
+    # Read-only market display. The provider is a public, credential-free host
+    # whose URL is a module constant in source/integrations/market_quotes.py:
+    # making it configurable would create an SSRF primitive that then has to be
+    # guarded, and there is no token to protect by pinning it.
+    market_quotes_timeout_seconds: float = 10.0
+    market_quotes_cache_ttl_seconds: PositiveInt = 60
     quant_worker_url: str = "http://quant-worker:8000"
     quant_data_worker_url: str = "http://quant-data-worker:8000"
     quant_worker_timeout_seconds: float = 20.0

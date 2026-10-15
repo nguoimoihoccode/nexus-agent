@@ -60,6 +60,8 @@ class DatabaseConfigTests(unittest.TestCase):
                 "NEXUS_QUANT_WORKER_DB_USER",
                 "NEXUS_QUANT_WORKER_TOKEN",
                 "NEXUS_TENANT_HMAC_KEY",
+                "MARKET_QUOTES_CACHE_TTL_SECONDS",
+                "MARKET_QUOTES_TIMEOUT_SECONDS",
                 "POSTGRES_PASSWORD",
                 "TAVILY_API_KEY",
             },

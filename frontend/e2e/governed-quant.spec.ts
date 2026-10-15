@@ -259,9 +259,82 @@ async function installProductApi(page, {
         headers: { "content-disposition": "attachment; filename=\"metrics.json\"" },
       });
     }
+    if (url.pathname === "/api/v1/market/quotes") {
+      return route.fulfill({ json: marketQuotePage() });
+    }
+    if (url.pathname === "/api/v1/market/history") {
+      return route.fulfill({
+        json: marketHistoryPage(url.searchParams.get("symbol"), url.searchParams.get("range")),
+      });
+    }
     return route.fulfill({ status: 404, json: { detail: "Not found in browser fixture." } });
   });
   return requests;
+}
+
+const MARKET_QUOTE = {
+  symbol: "VNM",
+  name: "VIETNAM DAIRY PRODUCTS JSC",
+  exchange: "HOSE",
+  currency: "VND",
+  price: 57200,
+  change_percent: -1.209,
+  volume: 1988733,
+  fifty_two_week_high: 75500,
+  fifty_two_week_low: 54600,
+  market_time: "2026-10-15T14:45:18+07:00",
+  error: null,
+};
+
+const MARKET_BARS = [
+  { time: "2026-10-13", close: 58400, volume: 1200000 },
+  { time: "2026-10-14", close: 57900, volume: 1179000 },
+  { time: "2026-10-15", close: 57200, volume: 1988733 },
+];
+
+function marketQuotePage() {
+  // Three rows on purpose: the accessibility gate has to see a rising, a
+  // falling, and an unavailable quote, which are the three coloured states.
+  return {
+    as_of: "2026-10-16T09:00:00+07:00",
+    stale: false,
+    quotes: [
+      MARKET_QUOTE,
+      { ...MARKET_QUOTE, symbol: "FPT", name: "FPT CORP", price: 58000, change_percent: 1.576 },
+      {
+        ...MARKET_QUOTE,
+        symbol: "BSR",
+        name: null,
+        price: null,
+        change_percent: null,
+        volume: null,
+        market_time: null,
+        error: "upstream_error",
+      },
+    ],
+  };
+}
+
+function marketHistoryPage(symbol, range) {
+  return {
+    as_of: "2026-10-16T09:00:00+07:00",
+    stale: false,
+    symbol: symbol || "VNM",
+    range: range || "1mo",
+    currency: "VND",
+    quote: MARKET_QUOTE,
+    bars: MARKET_BARS,
+  };
+}
+
+function seriousViolations(result) {
+  return result.violations
+    .filter((violation) => ["serious", "critical"].includes(violation.impact || ""))
+    .map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      targets: violation.nodes.flatMap((node) => node.target),
+    }));
 }
 
 async function openEvidence(page) {
@@ -374,23 +447,35 @@ test("authenticated product shell has no serious WCAG violations", async ({ page
   await installProductApi(page);
 
   const violations = [];
-  for (const path of ["/", "/chat", "/settings", "/agents", "/evidence"]) {
+  for (const path of ["/", "/chat", "/settings", "/agents", "/evidence", "/market?symbol=VNM&range=1mo"]) {
     await page.goto(path);
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     const result = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])
       .analyze();
-    violations.push(...result.violations
-      .filter((violation) => ["serious", "critical"].includes(violation.impact || ""))
-      .map((violation) => ({
-        path,
-        id: violation.id,
-        impact: violation.impact,
-        targets: violation.nodes.flatMap((node) => node.target),
-      })));
+    violations.push(...seriousViolations(result).map((violation) => ({ path, ...violation })));
   }
 
   expect(violations).toEqual([]);
+});
+
+test("market display chart carries a text alternative and passes the accessibility gate", async ({ page }) => {
+  await installRuntime(page);
+  await installProductApi(page);
+
+  await page.goto("/market?symbol=VNM&range=1mo");
+  await expect(page.getByRole("img", { name: /Biểu đồ giá đóng cửa VNM trong 1 tháng, 3 phiên/ })).toBeVisible();
+  // The polyline itself is unreadable to assistive technology, so the details
+  // table is the actual alternative rather than decoration.
+  await page.getByText("Bảng giá đóng cửa (3 phiên)").click();
+  await expect(page.getByRole("rowheader", { name: "15/10/2026" })).toBeVisible();
+  await expect(page.getByText("Không dùng cho quyết định đầu tư", { exact: false })).toBeVisible();
+  await expect(page.getByText("Nguồn dữ liệu đang lỗi")).toBeVisible();
+
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(seriousViolations(result)).toEqual([]);
 });
 
 test("Experiments renders a typed unauthorized dossier state for cross-tenant denial", async ({ page }) => {

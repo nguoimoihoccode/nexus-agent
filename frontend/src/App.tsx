@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Bot,
   BrainCircuit,
+  ChartNoAxesCombined,
   FileSearch,
   MessageSquare,
   Network,
@@ -43,12 +44,14 @@ const NAV_ITEMS = [
   { to: "/chat", label: "Trò chuyện", icon: MessageSquare },
   { to: "/evidence", label: "Experiments", icon: FileSearch },
   { to: "/agents", label: "Capabilities", icon: Network },
+  { to: "/market", label: "Thị trường", icon: ChartNoAxesCombined },
   { to: "/settings", label: "Cài đặt", icon: Settings },
 ] as const;
 
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/evidence")) return "Experiments";
   if (pathname.startsWith("/agents")) return "Capabilities";
+  if (pathname.startsWith("/market")) return "Thị trường";
   if (pathname.startsWith("/settings")) return "Cài đặt";
   return "Trung tâm điều phối";
 }

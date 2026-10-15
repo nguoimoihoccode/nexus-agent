@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as MarketRouteImport } from './routes/market'
 import { Route as EvidenceRouteImport } from './routes/evidence'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AgentsRouteImport } from './routes/agents'
@@ -23,6 +24,11 @@ import { Route as AgentsAgentIdRouteImport } from './routes/agents.$agentId'
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketRoute = MarketRouteImport.update({
+  id: '/market',
+  path: '/market',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EvidenceRoute = EvidenceRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AgentsRouteWithChildren
   '/chat': typeof ChatRoute
   '/evidence': typeof EvidenceRouteWithChildren
+  '/market': typeof MarketRoute
   '/settings': typeof SettingsRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/evidence/$experimentId': typeof EvidenceExperimentIdRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/market': typeof MarketRoute
   '/settings': typeof SettingsRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/evidence/$experimentId': typeof EvidenceExperimentIdRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/agents': typeof AgentsRouteWithChildren
   '/chat': typeof ChatRoute
   '/evidence': typeof EvidenceRouteWithChildren
+  '/market': typeof MarketRoute
   '/settings': typeof SettingsRoute
   '/agents/$agentId': typeof AgentsAgentIdRoute
   '/evidence/$experimentId': typeof EvidenceExperimentIdRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/chat'
     | '/evidence'
+    | '/market'
     | '/settings'
     | '/agents/$agentId'
     | '/evidence/$experimentId'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/chat'
+    | '/market'
     | '/settings'
     | '/agents/$agentId'
     | '/evidence/$experimentId'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/chat'
     | '/evidence'
+    | '/market'
     | '/settings'
     | '/agents/$agentId'
     | '/evidence/$experimentId'
@@ -148,6 +160,7 @@ export interface RootRouteChildren {
   AgentsRoute: typeof AgentsRouteWithChildren
   ChatRoute: typeof ChatRoute
   EvidenceRoute: typeof EvidenceRouteWithChildren
+  MarketRoute: typeof MarketRoute
   SettingsRoute: typeof SettingsRoute
 }
 
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/market': {
+      id: '/market'
+      path: '/market'
+      fullPath: '/market'
+      preLoaderRoute: typeof MarketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/evidence': {
@@ -260,6 +280,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsRoute: AgentsRouteWithChildren,
   ChatRoute: ChatRoute,
   EvidenceRoute: EvidenceRouteWithChildren,
+  MarketRoute: MarketRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport

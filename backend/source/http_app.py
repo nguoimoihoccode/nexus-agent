@@ -5,6 +5,7 @@ import json
 import logging
 import re
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qs
 
@@ -16,6 +17,7 @@ from source.agents.agent import _prepare_server_resources
 from source.agents.config.registry import frontend_safe_topology
 from source.contracts import ReplayPage
 from source.core.config import settings
+from source.core.market_universe import HOSE_LARGE_CAP_SYMBOLS
 from source.core.observability import log_event
 from source.infrastructure.authorization_repository import (
     PostgresAuthorizationLeaseRepository,
@@ -28,6 +30,11 @@ from source.infrastructure.experiment_repository import (
 from source.infrastructure.lineage_repository import PostgresLineageRepository
 from source.infrastructure.memory_repository import PostgresUserMemoryRepository
 from source.infrastructure.runtime_resources import require_domain_pool
+from source.integrations.market_quotes import (
+    SUPPORTED_RANGES,
+    MarketQuoteClient,
+    MarketQuoteError,
+)
 from source.integrations.qlib_client import QlibClient, QuantWorkerError
 from source.security import database_actor_context
 from source.security.auth import _verify_token
@@ -39,6 +46,7 @@ from source.security.browser_session import (
 )
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._:-]{1,200}$")
+_MARKET_SYMBOL = re.compile(r"^[A-Z0-9]{3,10}$")
 _LOCAL_CSRF_TOKEN = str()
 logger = logging.getLogger(__name__)
 
@@ -600,3 +608,105 @@ async def artifact_content(request: Request, artifact_id: str) -> Response:
             "X-Artifact-Content-Hash": manifest["content_hash"],
         },
     )
+
+
+# Read-only market display. This is the one market-data path in the repo that is
+# deliberately outside the governed pipeline: it records no dataset revision,
+# emits no product event, and is not exposed as an agent tool. Wiring it into
+# the agent layer, or reusing it for research, would bypass the validation and
+# lineage that `quant-data-worker` exists to enforce.
+_MARKET_ERROR_STATUS = {
+    "no_data": 404,
+    "timeout": 504,
+    "bad_payload": 502,
+    "upstream_error": 502,
+}
+
+
+@lru_cache(maxsize=1)
+def _market_quotes_client() -> MarketQuoteClient:
+    return MarketQuoteClient(
+        timeout_seconds=settings.market_quotes_timeout_seconds,
+        cache_ttl_seconds=settings.market_quotes_cache_ttl_seconds,
+    )
+
+
+def _market_status(error: MarketQuoteError) -> int:
+    return _MARKET_ERROR_STATUS.get(error.code, 502)
+
+
+def _market_symbols(raw: str | None) -> tuple[str, ...]:
+    """Selected symbols, defaulting to the whole display universe.
+
+    The universe is fixed in the repo rather than supplied by the caller: a free
+    `symbols` parameter would turn an authenticated route into a proxy for any
+    provider symbol, which is the boundary the governed pipeline exists to keep.
+    """
+    if raw is None:
+        return HOSE_LARGE_CAP_SYMBOLS
+    requested = tuple(
+        dict.fromkeys(item.strip().upper() for item in raw.split(",") if item.strip())
+    )
+    if not requested:
+        raise HTTPException(status_code=422, detail="At least one market symbol is required.")
+    if any(_MARKET_SYMBOL.fullmatch(item) is None for item in requested):
+        raise HTTPException(status_code=422, detail="Invalid market symbol.")
+    if any(item not in HOSE_LARGE_CAP_SYMBOLS for item in requested):
+        raise HTTPException(status_code=422, detail="Unsupported market symbol.")
+    return requested
+
+
+@app.get("/v1/market/quotes")
+async def market_quotes(
+    request: Request,
+    response: Response,
+    symbols: str | None = Query(default=None, max_length=400),
+) -> dict:
+    _actor_key, permissions = _identity(request)
+    _require_permission(permissions, "chat:run")
+    response.headers["Cache-Control"] = "no-store, private"
+    selected = _market_symbols(symbols)
+    try:
+        rows, as_of, stale = await _market_quotes_client().fetch_many(selected)
+    except MarketQuoteError as exc:
+        raise HTTPException(status_code=_market_status(exc), detail=exc.message) from exc
+    return {"as_of": as_of, "stale": stale, "quotes": rows}
+
+
+@app.get("/v1/market/history")
+async def market_history(
+    request: Request,
+    response: Response,
+    symbol: str = Query(pattern=r"^[A-Za-z0-9]{3,10}$"),
+    range_: str = Query(
+        default="1mo",
+        alias="range",
+        pattern=r"^(1mo|3mo|6mo|1y)$",
+    ),
+) -> dict:
+    _actor_key, permissions = _identity(request)
+    _require_permission(permissions, "chat:run")
+    response.headers["Cache-Control"] = "no-store, private"
+    normalized = symbol.strip().upper()
+    if (
+        _MARKET_SYMBOL.fullmatch(normalized) is None
+        or normalized not in HOSE_LARGE_CAP_SYMBOLS
+    ):
+        raise HTTPException(status_code=422, detail="Unsupported market symbol.")
+    if range_ not in SUPPORTED_RANGES:
+        # Reachable because the tests call handlers directly, which bypasses the
+        # Query(pattern=...) validation above.
+        raise HTTPException(status_code=422, detail="Unsupported chart range.")
+    try:
+        snapshot = await _market_quotes_client().fetch(normalized, range_)
+    except MarketQuoteError as exc:
+        raise HTTPException(status_code=_market_status(exc), detail=exc.message) from exc
+    return {
+        "as_of": snapshot.as_of,
+        "stale": snapshot.stale,
+        "symbol": normalized,
+        "range": range_,
+        "currency": snapshot.quote.get("currency"),
+        "quote": snapshot.quote,
+        "bars": list(snapshot.bars),
+    }

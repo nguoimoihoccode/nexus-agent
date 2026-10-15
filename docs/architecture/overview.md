@@ -16,13 +16,15 @@ Browser
       |-> quant-data-agent -> quant-data-worker -> OpenBB
       |-> quant-researcher -> quant-worker -> Qlib
       `-> ai-trader-agent -> ai-trader-worker -> Alpha Vantage snapshots
+  -> read-only market display (no agent involvement)
+      `-> backend/source/integrations/market_quotes.py -> Yahoo Finance chart API
   -> PostgreSQL checkpoints, workflow control, approvals, leases, events, evidence, memory
   -> actor-scoped local dataset, artifact, and AI-Trader snapshot storage
 ```
 
 The frontend loads topology from authenticated `GET /v1/topology`; it has no editable
 or simulated copy of the harness. TanStack Router owns reload-safe chat, experiment
-catalog/dossier/comparison, capability, and settings URLs. The backend owns OIDC login,
+catalog/dossier/comparison, capability, settings, and market URLs. The backend owns OIDC login,
 callback, refresh, logout, and session contracts so OAuth credentials never enter
 JavaScript or browser storage. TanStack
 Query owns topology, health, experiment catalog/evidence, lineage, comparison, and
@@ -35,12 +37,23 @@ dossiers/comparison/export, and verified artifact downloads. Assistant responses
 render only strictly shaped experiment IDs as internal dossier links; PostgreSQL,
 not streamed prose or browser state, remains the catalog authority.
 
+`GET /v1/market/quotes` and `GET /v1/market/history` back the read-only market page.
+They are a display path, deliberately **outside** the governed quant pipeline: the
+handler writes no staging revision, no fingerprint, and no domain record, and the
+symbol universe is a constant in `backend/source/core/market_universe.py` rather than
+a user-supplied query. The provider is a public third-party host reached from the
+backend only — `connect-src 'self'` in `frontend/nginx.conf` keeps the browser from
+calling it directly — and results are cached in process for
+`MARKET_QUOTES_CACHE_TTL_SECONDS`. This path must not be wired into an agent tool or
+treated as a governed dataset; anything that needs lineage belongs in
+`quant-data-worker` instead.
+
 ## Runtime components
 
 | Component | Responsibility | Durable state |
 | --- | --- | --- |
 | `backend/` | Authentication, graph composition, workflow control, product APIs | PostgreSQL checkpoints and `nexus_domain` records |
-| `frontend/` | TypeScript React shell, chat/experiments/capabilities/settings UI, same-origin session client, SSE guards and graph | URL state, query cache, and non-sensitive browser-session UI state only |
+| `frontend/` | TypeScript React shell, chat/experiments/capabilities/settings/read-only market UI, same-origin session client, SSE guards and graph | URL state, query cache, and non-sensitive browser-session UI state only |
 | `quant-data-worker/` | OpenBB fetch, validation, immutable staging and Qlib dataset build | Actor-scoped files plus beta PostgreSQL revision/control records |
 | `quant-worker/` | Allowlisted Qlib execution, cancellation, results, artifact verification | Beta PostgreSQL job state plus actor-scoped artifact files |
 | `ai-trader-worker/` | Cached market intelligence, signal feed, publication endpoint | Nexus-owned SQLite tables on the node |
@@ -91,10 +104,12 @@ require `studio:access`.
 | Domain schema and repositories | `backend/migrations/`, `backend/source/infrastructure/` |
 | Composite dataset/experiment workflows | `backend/source/application/` |
 | Worker contracts and clients | `backend/source/contracts/`, `backend/source/integrations/` |
+| Read-only market display (provider client, symbol universe) | `backend/source/integrations/market_quotes.py`, `backend/source/core/market_universe.py` |
 | Worker domain/application/adapters | each worker's `worker/` package |
 | Browser routes and application shell | `frontend/src/routes/`, `frontend/src/App.tsx` |
 | Browser server state and runtime validation | `frontend/src/api/`, TanStack Query hooks |
 | Browser SSE protocol and state guards | `frontend/src/api/chat*.ts`, `frontend/src/features/chat/`, `frontend/src/hooks/useChat.ts` |
+| Market chart geometry and rendering | `frontend/src/features/market/` |
 
 PostgreSQL is the authority for checkpoints, workflow/job control, idempotency,
 approvals, actor/thread authorization leases, replayable events, evidence lineage,
@@ -154,6 +169,11 @@ artifacts, lineage and governed-effect evidence remain in the dossier APIs.
   the built-in local actor on loopback.
 - Internal quant workers require separate service credentials and a pseudonymous
   actor key in production; AI-Trader retains its own credential.
+- The read-only market display is the only product path that egresses to a
+  credential-free third-party host at request time. It requires `chat:run`, forwards no
+  actor identity, session, or token upstream, accepts symbols only from the repo
+  constant, bounds itself with an in-process TTL cache and a six-connection semaphore,
+  and is documented as unsuitable for investment decisions.
 - Durable approvals guard memory writes/deletes, AI-Trader publications, dataset
   preparation, factor snapshots, experiment submission, and interpretation
   persistence. The decision is either a native human interrupt or a verified
