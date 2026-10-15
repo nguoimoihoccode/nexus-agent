@@ -77,7 +77,12 @@ COMPOSE=(
 
 # 4. Drop images that are neither running nor recent, so repeated deploys do not
 #    fill the disk. A week of history is kept so a rollback still finds its tag.
-docker image prune -f --filter "until=168h" >/dev/null
+#    -a is what makes this true: without it Docker only removes dangling layers,
+#    and a tagged sha-* image is never dangling, so every past deploy's images
+#    stay behind. The window is what bounds usage, not the flag: a deploy costs
+#    roughly 1.3 GB, so a busy week can still outgrow a small disk and wants a
+#    shorter --filter than this one.
+docker image prune -a -f --filter "until=168h" >/dev/null
 
 echo "deployed ${TAG}"
 echo "public endpoint: ${PUBLIC_URL}"
