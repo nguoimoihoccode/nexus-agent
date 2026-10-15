@@ -82,7 +82,12 @@ COMPOSE=(
 #    stay behind. The window is what bounds usage, not the flag: a deploy costs
 #    roughly 1.3 GB, so a busy week can still outgrow a small disk and wants a
 #    shorter --filter than this one.
-docker image prune -a -f --filter "until=168h" >/dev/null
+#
+#    Pruning is housekeeping that runs after the containers are already up, so a
+#    daemon that refuses it must not fail the run. Docker refuses with "a prune
+#    operation is already running" whenever anything else is pruning, and under
+#    `set -e` that turned a deploy red with every container healthy and serving.
+docker image prune -a -f --filter "until=168h" >/dev/null || true
 
 echo "deployed ${TAG}"
 echo "public endpoint: ${PUBLIC_URL}"
