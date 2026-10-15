@@ -42,7 +42,9 @@ permissions:
   contents: write
 
 env:
-  UV_VERSION: 0.10.6
+  # Must match the uv image tag in the Dockerfiles. Dependabot bumps those and
+  # never this file, so the two drift apart silently.
+  UV_VERSION: 0.13.0
   UV_HTTP_TIMEOUT: 300
 
 jobs:
