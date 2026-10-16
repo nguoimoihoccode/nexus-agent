@@ -120,19 +120,14 @@ export function dateTicks(bars: readonly MarketBar[], count = 4): DateTick[] {
   return ticks;
 }
 
+// One formatter for the process: the board renders 312 rows of three prices
+// each, and building an Intl.NumberFormat per cell is measurably wasteful.
+const VND = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
+const COUNT = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
+
 export function formatVnd(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
-}
-
-export function formatChangePercent(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "—";
-  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
-
-export function changeTone(value: number | null): "up" | "down" | "flat" {
-  if (value === null || !Number.isFinite(value) || value === 0) return "flat";
-  return value > 0 ? "up" : "down";
+  return VND.format(value);
 }
 
 /** Vietnamese magnitude suffixes, hand-rolled so the output is ICU-stable. */
@@ -141,6 +136,12 @@ export function formatVolume(value: number | null): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} tr`;
   if (value >= 1_000) return `${Math.round(value / 1_000)} ng`;
   return String(value);
+}
+
+/** Integer counts, grouped the same way prices are. */
+export function formatCount(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return COUNT.format(value);
 }
 
 /** `2026-10-15` -> `15/10`. */

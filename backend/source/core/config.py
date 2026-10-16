@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # guarded, and there is no token to protect by pinning it.
     market_quotes_timeout_seconds: float = 10.0
     market_quotes_cache_ttl_seconds: PositiveInt = 60
+    # The board group answers with every HOSE listing in one response, and its
+    # reference prices belong to a whole trading session, so this TTL is longer
+    # than the per-symbol chart one. It also bounds how long a board from the
+    # previous session can survive across the daily rollover.
+    market_universe_cache_ttl_seconds: PositiveInt = 900
     quant_worker_url: str = "http://quant-worker:8000"
     quant_data_worker_url: str = "http://quant-data-worker:8000"
     quant_worker_timeout_seconds: float = 20.0

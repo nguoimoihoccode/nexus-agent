@@ -17,7 +17,6 @@ from source.agents.agent import _prepare_server_resources
 from source.agents.config.registry import frontend_safe_topology
 from source.contracts import ReplayPage
 from source.core.config import settings
-from source.core.market_universe import HOSE_LARGE_CAP_SYMBOLS
 from source.core.observability import log_event
 from source.infrastructure.authorization_repository import (
     PostgresAuthorizationLeaseRepository,
@@ -46,7 +45,6 @@ from source.security.browser_session import (
 )
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._:-]{1,200}$")
-_MARKET_SYMBOL = re.compile(r"^[A-Z0-9]{3,10}$")
 _LOCAL_CSRF_TOKEN = str()
 logger = logging.getLogger(__name__)
 
@@ -615,12 +613,22 @@ async def artifact_content(request: Request, artifact_id: str) -> Response:
 # emits no product event, and is not exposed as an agent tool. Wiring it into
 # the agent layer, or reusing it for research, would bypass the validation and
 # lineage that `quant-data-worker` exists to enforce.
+#
+# The symbol universe is not a repo constant: it is whatever the provider's
+# board group lists, cached for MARKET_UNIVERSE_CACHE_TTL_SECONDS. Every HOSE
+# listing on that board is quoted in đồng, so no currency field is carried per
+# row.
 _MARKET_ERROR_STATUS = {
     "no_data": 404,
     "timeout": 504,
     "bad_payload": 502,
     "upstream_error": 502,
 }
+_MARKET_CURRENCY = "VND"
+
+
+def _market_status(error: MarketQuoteError) -> int:
+    return _MARKET_ERROR_STATUS.get(error.code, 502)
 
 
 @lru_cache(maxsize=1)
@@ -628,49 +636,25 @@ def _market_quotes_client() -> MarketQuoteClient:
     return MarketQuoteClient(
         timeout_seconds=settings.market_quotes_timeout_seconds,
         cache_ttl_seconds=settings.market_quotes_cache_ttl_seconds,
+        universe_ttl_seconds=settings.market_universe_cache_ttl_seconds,
     )
-
-
-def _market_status(error: MarketQuoteError) -> int:
-    return _MARKET_ERROR_STATUS.get(error.code, 502)
-
-
-def _market_symbols(raw: str | None) -> tuple[str, ...]:
-    """Selected symbols, defaulting to the whole display universe.
-
-    The universe is fixed in the repo rather than supplied by the caller: a free
-    `symbols` parameter would turn an authenticated route into a proxy for any
-    provider symbol, which is the boundary the governed pipeline exists to keep.
-    """
-    if raw is None:
-        return HOSE_LARGE_CAP_SYMBOLS
-    requested = tuple(
-        dict.fromkeys(item.strip().upper() for item in raw.split(",") if item.strip())
-    )
-    if not requested:
-        raise HTTPException(status_code=422, detail="At least one market symbol is required.")
-    if any(_MARKET_SYMBOL.fullmatch(item) is None for item in requested):
-        raise HTTPException(status_code=422, detail="Invalid market symbol.")
-    if any(item not in HOSE_LARGE_CAP_SYMBOLS for item in requested):
-        raise HTTPException(status_code=422, detail="Unsupported market symbol.")
-    return requested
 
 
 @app.get("/v1/market/quotes")
-async def market_quotes(
-    request: Request,
-    response: Response,
-    symbols: str | None = Query(default=None, max_length=400),
-) -> dict:
+async def market_quotes(request: Request, response: Response) -> dict:
     _actor_key, permissions = _identity(request)
     _require_permission(permissions, "chat:run")
     response.headers["Cache-Control"] = "no-store, private"
-    selected = _market_symbols(symbols)
     try:
-        rows, as_of, stale = await _market_quotes_client().fetch_many(selected)
+        board = await _market_quotes_client().fetch_board()
     except MarketQuoteError as exc:
         raise HTTPException(status_code=_market_status(exc), detail=exc.message) from exc
-    return {"as_of": as_of, "stale": stale, "quotes": rows}
+    return {
+        "as_of": board.as_of,
+        "stale": board.stale,
+        "trading_date": board.trading_date,
+        "quotes": list(board.rows),
+    }
 
 
 @app.get("/v1/market/history")
@@ -688,10 +672,15 @@ async def market_history(
     _require_permission(permissions, "chat:run")
     response.headers["Cache-Control"] = "no-store, private"
     normalized = symbol.strip().upper()
-    if (
-        _MARKET_SYMBOL.fullmatch(normalized) is None
-        or normalized not in HOSE_LARGE_CAP_SYMBOLS
-    ):
+    try:
+        board = await _market_quotes_client().fetch_board()
+    except MarketQuoteError as exc:
+        raise HTTPException(status_code=_market_status(exc), detail=exc.message) from exc
+    # Membership is decided by the provider's own board rather than a repo
+    # constant, and it is checked before the chart call so an unknown symbol
+    # never becomes an arbitrary upstream lookup.
+    row = next((item for item in board.rows if item["symbol"] == normalized), None)
+    if row is None:
         raise HTTPException(status_code=422, detail="Unsupported market symbol.")
     if range_ not in SUPPORTED_RANGES:
         # Reachable because the tests call handlers directly, which bypasses the
@@ -706,7 +695,7 @@ async def market_history(
         "stale": snapshot.stale,
         "symbol": normalized,
         "range": range_,
-        "currency": snapshot.quote.get("currency"),
-        "quote": snapshot.quote,
+        "currency": _MARKET_CURRENCY,
+        "quote": row,
         "bars": list(snapshot.bars),
     }

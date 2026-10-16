@@ -13,34 +13,33 @@ afterEach(() => {
 
 const VNM = {
   symbol: "VNM",
-  name: "VIETNAM DAIRY PRODUCTS JSC",
+  name: "CTCP Sữa Việt Nam",
   exchange: "HOSE",
-  currency: "VND",
-  price: 57_200,
-  change_percent: -1.209,
-  volume: 1_988_733,
-  fifty_two_week_high: 75_500,
-  fifty_two_week_low: 54_600,
-  market_time: "2026-10-15T14:45:18+07:00",
-  error: null,
+  ref_price: 57_200,
+  ceiling: 61_200,
+  floor: 53_200,
+  foreign_room: 1_234_567,
+  trading_unit: 10,
 };
 
-const FPT = { ...VNM, symbol: "FPT", name: "FPT CORP", price: 58_000, change_percent: 1.576 };
-const BROKEN = {
+const FPT = { ...VNM, symbol: "FPT", name: "CTCP FPT", ref_price: 58_000 };
+const AAA = {
   ...VNM,
-  symbol: "BSR",
-  name: null,
-  price: null,
-  change_percent: null,
-  volume: null,
-  market_time: null,
-  error: "upstream_error",
+  symbol: "AAA",
+  name: "CTCP Nhựa An Phát Xanh",
+  ref_price: 7_000,
+  ceiling: 7_490,
+  floor: 6_510,
 };
+const MWG = { ...VNM, symbol: "MWG", name: "CTCP Đầu tư Thế Giới Di Động" };
+// A listing SSI has not published a band for yet. The row stays, with dashes.
+const NO_BAND = { ...VNM, symbol: "BSR", name: null, ref_price: null, ceiling: null, floor: null };
 
 const QUOTES = {
   as_of: "2026-10-16T09:00:00+07:00",
   stale: false,
-  quotes: [VNM, FPT, BROKEN],
+  trading_date: "2026-10-16",
+  quotes: [VNM, FPT, AAA, MWG, NO_BAND],
 };
 
 const BARS = [
@@ -109,36 +108,88 @@ function renderPage(
 }
 
 function rowFor(symbol: string): HTMLElement {
-  const row = screen.getByRole("button", { name: new RegExp(`^${symbol}\\b`) });
-  return row;
+  return screen.getByRole("button", { name: new RegExp(`^${symbol}\\b`) });
 }
 
-test("the quote list renders every symbol with its price and change", async () => {
+test("the board lists every symbol with its reference price, ceiling and floor", async () => {
   stubApi({ quotes: () => json(QUOTES) });
   renderPage();
 
   expect(await screen.findByText("VNM")).toBeTruthy();
   expect(rowFor("VNM").textContent).toContain("57.200");
-  expect(rowFor("VNM").textContent).toContain("-1.21%");
-  expect(rowFor("FPT").textContent).toContain("+1.58%");
-  expect(rowFor("VNM").querySelector(".market-change")?.className).toContain("down");
-  expect(rowFor("FPT").querySelector(".market-change")?.className).toContain("up");
+  expect(rowFor("VNM").textContent).toContain("61.200");
+  expect(rowFor("VNM").textContent).toContain("53.200");
+  expect(screen.getByText("Tham chiếu")).toBeTruthy();
+  expect(screen.getByText("5 mã")).toBeTruthy();
 });
 
-test("a symbol the provider could not serve degrades to a label inside its row", async () => {
+test("a row is announced field by field, because a bare number could be any of the three", async () => {
   stubApi({ quotes: () => json(QUOTES) });
   renderPage();
 
-  await screen.findByText("VNM");
-  expect(rowFor("BSR").textContent).toContain("Nguồn dữ liệu đang lỗi");
-  expect(rowFor("BSR").querySelector(".market-unavailable")).toBeTruthy();
+  const row = await screen.findByRole("button", { name: /^AAA\b/ });
+
+  expect(row.getAttribute("aria-label")).toBe(
+    "AAA, CTCP Nhựa An Phát Xanh, giá tham chiếu 7.000 đồng, giá trần 7.490 đồng, giá sàn 6.510 đồng",
+  );
 });
 
-test("the displayed timestamp carries the provider's own offset, and stale data says so", async () => {
+test("a listing with no published band keeps its row and shows dashes", async () => {
+  stubApi({ quotes: () => json(QUOTES) });
+  renderPage();
+
+  const row = await screen.findByRole("button", { name: /^BSR\b/ });
+
+  const cells = Array.from(row.querySelectorAll(".market-price, .market-band"));
+  expect(cells.map((cell) => cell.textContent)).toEqual(["—", "—", "—"]);
+});
+
+test("the filter narrows the board by symbol, ignoring case", async () => {
+  stubApi({ quotes: () => json(QUOTES) });
+  renderPage();
+
+  fireEvent.change(await screen.findByLabelText("Lọc theo mã hoặc tên"), {
+    target: { value: "fpt" },
+  });
+
+  expect(rowFor("FPT")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^VNM\b/ })).toBeNull();
+  expect(screen.getByText("1 / 5 mã")).toBeTruthy();
+});
+
+test("the filter matches company names typed without Vietnamese diacritics", async () => {
+  stubApi({ quotes: () => json(QUOTES) });
+  renderPage();
+
+  const input = await screen.findByLabelText("Lọc theo mã hoặc tên");
+  // "Nhựa An Phát Xanh" and "Đầu tư Thế Giới Di Động" typed on a plain keyboard.
+  // `đ` has no NFD decomposition, so that fold is hand-rolled.
+  for (const [typed, symbol] of [["nhua an phat", "AAA"], ["dau tu the gioi", "MWG"]]) {
+    fireEvent.change(input, { target: { value: typed } });
+    expect(rowFor(symbol)).toBeTruthy();
+    expect(screen.getByText("1 / 5 mã")).toBeTruthy();
+  }
+});
+
+test("a filter that matches nothing says so instead of rendering an empty list", async () => {
+  stubApi({ quotes: () => json(QUOTES) });
+  renderPage();
+
+  fireEvent.change(await screen.findByLabelText("Lọc theo mã hoặc tên"), {
+    target: { value: "zzzz" },
+  });
+
+  expect(screen.getByText("Không mã nào khớp từ khoá lọc.")).toBeTruthy();
+  expect(screen.getByText("0 / 5 mã")).toBeTruthy();
+});
+
+test("the stamp names the session and marks a cached board as stale", async () => {
   stubApi({ quotes: () => json({ ...QUOTES, stale: true }) });
   renderPage();
 
-  expect(await screen.findByText(/Cập nhật 16\/10 09:00 \(bản lưu cũ\)/)).toBeTruthy();
+  expect(
+    await screen.findByText(/Phiên 16\/10\/2026 · cập nhật 16\/10 09:00 \(bản lưu cũ\)/),
+  ).toBeTruthy();
 });
 
 test("selecting a row reports the symbol instead of navigating itself", async () => {
@@ -168,7 +219,24 @@ test("a selected symbol fetches its history and draws the chart with a text alte
   expect(chart.querySelector(".market-chart-line")?.getAttribute("points")?.split(" ").length).toBe(3);
   expect(screen.getByText("Bảng giá đóng cửa (3 phiên)")).toBeTruthy();
   expect(screen.getByRole("rowheader", { name: "17/09/2026" })).toBeTruthy();
-  expect(screen.getByText("VNM · VIETNAM DAIRY PRODUCTS JSC")).toBeTruthy();
+  expect(screen.getByText("VNM · CTCP Sữa Việt Nam")).toBeTruthy();
+});
+
+test("the detail summary names every figure, and calls the base price a reference", async () => {
+  stubApi({ quotes: () => json(QUOTES), history: () => json(HISTORY) });
+  renderPage({ symbol: "VNM" });
+
+  await screen.findByRole("img", { name: /Biểu đồ/ });
+
+  expect(screen.getAllByRole("term").map((node) => node.textContent)).toEqual([
+    "Tham chiếu",
+    "Trần",
+    "Sàn",
+    "Room ngoại",
+    "Đơn vị giao dịch",
+    "Phiên",
+  ]);
+  expect(screen.getByText(/không phải giá khớp lệnh trong phiên/)).toBeTruthy();
 });
 
 test("changing the range reports the new range and refetches that range", async () => {

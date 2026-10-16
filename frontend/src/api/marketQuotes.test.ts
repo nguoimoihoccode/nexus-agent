@@ -35,19 +35,21 @@ function json(body: unknown, status = 200): Response {
 
 const QUOTE = {
   symbol: "VNM",
-  name: "VIETNAM DAIRY PRODUCTS JSC",
+  name: "CTCP Sữa Việt Nam",
   exchange: "HOSE",
-  currency: "VND",
-  price: 57_200,
-  change_percent: -1.209,
-  volume: 1_988_733,
-  fifty_two_week_high: 75_500,
-  fifty_two_week_low: 54_600,
-  market_time: "2026-10-15T14:45:18+07:00",
-  error: null,
+  ref_price: 57_200,
+  ceiling: 61_200,
+  floor: 53_200,
+  foreign_room: 1_234_567,
+  trading_unit: 10,
 };
 
-const QUOTES_PAGE = { as_of: "2026-10-16T09:00:00+07:00", stale: false, quotes: [QUOTE] };
+const QUOTES_PAGE = {
+  as_of: "2026-10-16T09:00:00+07:00",
+  stale: false,
+  trading_date: "2026-10-16",
+  quotes: [QUOTE],
+};
 
 const HISTORY_PAGE = {
   as_of: "2026-10-16T09:00:00+07:00",
@@ -75,7 +77,8 @@ test("the quote list is fetched from the same-origin product API with no symbols
     new Headers(requests[0].options.headers).get("accept"),
     "application/json",
   );
-  assert.equal(page.quotes[0].price, 57_200);
+  assert.equal(page.quotes[0].ref_price, 57_200);
+  assert.equal(page.trading_date, "2026-10-16");
   assert.equal(page.stale, false);
 });
 
@@ -104,17 +107,57 @@ test("a contract violation is rejected with invalid_contract instead of being re
   );
 });
 
-test("an unknown provider error code degrades to the row rather than failing the page", async () => {
+test("a row without a published band is still a valid row", async () => {
+  // The backend nulls the band rather than dropping the listing, so the client
+  // has to accept it instead of turning the whole board into invalid_contract.
   stubFetch(() => json({
-    as_of: "2026-10-16T09:00:00+07:00",
+    ...QUOTES_PAGE,
     stale: true,
-    quotes: [{ ...QUOTE, price: null, change_percent: null, error: "rate_limited" }],
+    quotes: [{ ...QUOTE, ref_price: null, ceiling: null, floor: null }],
   }));
 
   const page = await fetchMarketQuotes();
 
-  assert.equal(page.quotes[0].error, "rate_limited");
+  assert.equal(page.quotes[0].ref_price, null);
   assert.equal(page.stale, true);
+});
+
+test("a board larger than the old display universe still parses", async () => {
+  // HOSE lists several hundred stocks, one row each.
+  const quotes = Array.from({ length: 312 }, (_, index) => ({
+    ...QUOTE,
+    symbol: `S${String(index).padStart(2, "0")}`,
+  }));
+  stubFetch(() => json({ ...QUOTES_PAGE, quotes }));
+
+  const page = await fetchMarketQuotes();
+
+  assert.equal(page.quotes.length, 312);
+});
+
+test("a board beyond the collection cap is refused", async () => {
+  const quotes = Array.from({ length: 513 }, (_, index) => ({
+    ...QUOTE,
+    symbol: `S${String(index).padStart(3, "0")}`,
+  }));
+  stubFetch(() => json({ ...QUOTES_PAGE, quotes }));
+
+  await assert.rejects(
+    () => fetchMarketQuotes(),
+    (error: unknown) => {
+      assert.ok(error instanceof ProductApiError);
+      assert.equal(error.code, "invalid_contract");
+      return true;
+    },
+  );
+});
+
+test("a missing trading date is null rather than a contract failure", async () => {
+  stubFetch(() => json({ ...QUOTES_PAGE, trading_date: null }));
+
+  const page = await fetchMarketQuotes();
+
+  assert.equal(page.trading_date, null);
 });
 
 test("backend status codes reach the caller unchanged", async () => {

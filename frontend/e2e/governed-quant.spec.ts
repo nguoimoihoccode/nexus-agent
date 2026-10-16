@@ -274,16 +274,13 @@ async function installProductApi(page, {
 
 const MARKET_QUOTE = {
   symbol: "VNM",
-  name: "VIETNAM DAIRY PRODUCTS JSC",
+  name: "CTCP Sữa Việt Nam",
   exchange: "HOSE",
-  currency: "VND",
-  price: 57200,
-  change_percent: -1.209,
-  volume: 1988733,
-  fifty_two_week_high: 75500,
-  fifty_two_week_low: 54600,
-  market_time: "2026-10-15T14:45:18+07:00",
-  error: null,
+  ref_price: 57200,
+  ceiling: 61200,
+  floor: 53200,
+  foreign_room: 1234567,
+  trading_unit: 10,
 };
 
 const MARKET_BARS = [
@@ -293,24 +290,24 @@ const MARKET_BARS = [
 ];
 
 function marketQuotePage() {
-  // Three rows on purpose: the accessibility gate has to see a rising, a
-  // falling, and an unavailable quote, which are the three coloured states.
+  // Three rows on purpose: a full band, a Vietnamese name that only the
+  // diacritic-insensitive filter finds, and a listing whose band SSI has not
+  // published yet, which is the one row shape that renders dashes.
   return {
     as_of: "2026-10-16T09:00:00+07:00",
     stale: false,
+    trading_date: "2026-10-16",
     quotes: [
       MARKET_QUOTE,
-      { ...MARKET_QUOTE, symbol: "FPT", name: "FPT CORP", price: 58000, change_percent: 1.576 },
       {
         ...MARKET_QUOTE,
-        symbol: "BSR",
-        name: null,
-        price: null,
-        change_percent: null,
-        volume: null,
-        market_time: null,
-        error: "upstream_error",
+        symbol: "AAA",
+        name: "CTCP Nhựa An Phát Xanh",
+        ref_price: 7000,
+        ceiling: 7490,
+        floor: 6510,
       },
+      { ...MARKET_QUOTE, symbol: "BSR", name: null, ref_price: null, ceiling: null, floor: null },
     ],
   };
 }
@@ -465,17 +462,32 @@ test("market display chart carries a text alternative and passes the accessibili
 
   await page.goto("/market?symbol=VNM&range=1mo");
   await expect(page.getByRole("img", { name: /Biểu đồ giá đóng cửa VNM trong 1 tháng, 3 phiên/ })).toBeVisible();
+
+  // SSI publishes no matched price over REST, so the board must present its
+  // numbers as the session reference/ceiling/floor and say so out loud.
+  const head = page.locator(".market-list-head");
+  await expect(head).toContainText("Mã");
+  await expect(head).toContainText("Tham chiếu");
+  await expect(head).toContainText("Trần");
+  await expect(head).toContainText("Sàn");
+  await expect(page.getByText("không phải giá khớp lệnh trong phiên")).toBeVisible();
+
   // The polyline itself is unreadable to assistive technology, so the details
   // table is the actual alternative rather than decoration.
   await page.getByText("Bảng giá đóng cửa (3 phiên)").click();
   await expect(page.getByRole("rowheader", { name: "15/10/2026" })).toBeVisible();
   await expect(page.getByText("Không dùng cho quyết định đầu tư", { exact: false })).toBeVisible();
-  await expect(page.getByText("Nguồn dữ liệu đang lỗi")).toBeVisible();
 
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
   expect(seriousViolations(result)).toEqual([]);
+
+  // 312 rows need a filter, and a Vietnamese company name has to be findable
+  // from a keyboard that cannot type its diacritics.
+  await page.getByLabel("Lọc theo mã hoặc tên").fill("nhua an phat");
+  await expect(page.getByRole("button", { name: /^AAA\b/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^VNM\b/ })).toHaveCount(0);
 });
 
 test("Experiments renders a typed unauthorized dossier state for cross-tenant denial", async ({ page }) => {

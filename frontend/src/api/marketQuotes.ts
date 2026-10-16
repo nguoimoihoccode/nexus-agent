@@ -21,21 +21,20 @@ const requiredText = z.string().min(1).max(512);
 const optionalText = z.string().max(512).nullable();
 const priceSchema = z.number().nonnegative().nullable();
 
-// `error` stays a free string rather than an enum: a new provider failure code
-// must degrade to a generic row message, not to an invalid_contract 502 that
-// blanks the whole page.
+// The provider quotes a reference price for the session, not a matched trade
+// price, so there is no change, volume, or intraday timestamp to carry. Both
+// the band and the symbol count are the provider's: the board is one listing
+// per HOSE stock, and the range is wide enough that a growing market does not
+// turn the whole page into an invalid_contract error.
 const quoteSchema = z.object({
   symbol: z.string().regex(SYMBOL_PATTERN),
   name: optionalText,
   exchange: optionalText,
-  currency: optionalText,
-  price: priceSchema,
-  change_percent: z.number().nullable(),
-  volume: z.number().int().nonnegative().nullable(),
-  fifty_two_week_high: priceSchema,
-  fifty_two_week_low: priceSchema,
-  market_time: optionalText,
-  error: z.string().max(64).nullable(),
+  ref_price: priceSchema,
+  ceiling: priceSchema,
+  floor: priceSchema,
+  foreign_room: z.number().int().nonnegative().nullable(),
+  trading_unit: z.number().int().positive().nullable(),
 });
 
 const barSchema = z.object({
@@ -47,7 +46,10 @@ const barSchema = z.object({
 const quotesPageSchema = z.object({
   as_of: requiredText,
   stale: z.boolean(),
-  quotes: z.array(quoteSchema).max(64),
+  // The session the reference prices belong to. Nullable because a board row
+  // without a session date is still a usable row.
+  trading_date: z.string().regex(BAR_DATE_PATTERN).nullable(),
+  quotes: z.array(quoteSchema).max(512),
 });
 
 const historyPageSchema = z.object({
@@ -135,8 +137,8 @@ function parseContract<T>(schema: z.ZodType<T>, payload: unknown, message: strin
 }
 
 export async function fetchMarketQuotes(signal?: AbortSignal): Promise<MarketQuotePage> {
-  // No `symbols` parameter: the universe lives in the backend so there is only
-  // one place to update at the next HOSE review.
+  // No `symbols` parameter: the board is whatever the provider lists as HOSE,
+  // so there is only one place for the universe to change.
   return parseContract(
     quotesPageSchema,
     await readJsonResponse(await request("/v1/market/quotes", signal)),

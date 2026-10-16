@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChartNoAxesCombined, RefreshCw } from "lucide-react";
 
@@ -13,11 +13,10 @@ import {
 import { AsyncState } from "../../components/AsyncState.js";
 import { PriceChart } from "./PriceChart.js";
 import {
-  changeTone,
-  formatChangePercent,
+  formatCount,
+  formatLongDate,
   formatMarketTime,
   formatVnd,
-  formatVolume,
 } from "./chartGeometry.js";
 
 type MarketPageProps = {
@@ -34,16 +33,22 @@ const RANGE_LABELS: Record<MarketRange, string> = {
   "1y": "1 năm",
 };
 
-const ERROR_LABELS: Record<string, string> = {
-  no_data: "Không có dữ liệu",
-  timeout: "Nguồn dữ liệu không phản hồi",
-  bad_payload: "Dữ liệu trả về không hợp lệ",
-  upstream_error: "Nguồn dữ liệu đang lỗi",
-};
+const COMBINING_MARKS = /[̀-ͯ]/g;
 
-function errorLabel(code: string | null): string {
-  if (!code) return "—";
-  return ERROR_LABELS[code] ?? "Không tải được mã này";
+/**
+ * Case- and accent-insensitive key for the filter box.
+ *
+ * The board carries Vietnamese company names, so "nhua an phat" has to find
+ * "Nhựa An Phát Xanh". NFD splits most diacritics into a combining mark, but
+ * `đ` has no decomposition, so it is folded by hand.
+ */
+function fold(value: string): string {
+  return value.normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase().replace(/đ/g, "d");
+}
+
+function matches(quote: MarketQuote, needle: string): boolean {
+  if (needle === "") return true;
+  return fold(quote.symbol).includes(needle) || fold(quote.name ?? "").includes(needle);
 }
 
 function message(error: unknown): string | undefined {
@@ -82,17 +87,16 @@ function MarketState({ error, onRetry }: { error: unknown; onRetry: () => void }
 
 function rowLabel(quote: MarketQuote): string {
   const name = quote.name ?? quote.exchange ?? "";
-  if (quote.error) {
-    return [quote.symbol, name, errorLabel(quote.error)].filter(Boolean).join(", ");
-  }
   // The row is a grid of bare spans, so without this a screen reader announces
-  // "VNMVIETNAM DAIRY PRODUCTS JSC57.200-1.21%" as one run-on string.
+  // "AAAAN PHAT BIOPLASTICS7.0007.4906.510" as one run-on string. Every value is
+  // labelled with what it is, because a bare number here is a reference price,
+  // a ceiling, or a floor and they are not interchangeable.
   return [
     quote.symbol,
     name,
-    `giá ${formatVnd(quote.price)} đồng`,
-    `thay đổi ${formatChangePercent(quote.change_percent)}`,
-    `khối lượng ${formatVolume(quote.volume)}`,
+    `giá tham chiếu ${formatVnd(quote.ref_price)} đồng`,
+    `giá trần ${formatVnd(quote.ceiling)} đồng`,
+    `giá sàn ${formatVnd(quote.floor)} đồng`,
   ].filter(Boolean).join(", ");
 }
 
@@ -101,7 +105,6 @@ function QuoteRow({ quote, selected, onSelect }: {
   selected: boolean;
   onSelect: () => void;
 }) {
-  const tone = changeTone(quote.change_percent);
   return (
     <button
       type="button"
@@ -112,50 +115,49 @@ function QuoteRow({ quote, selected, onSelect }: {
     >
       <span className="market-symbol">{quote.symbol}</span>
       <span className="market-name">{quote.name ?? quote.exchange ?? "—"}</span>
-      {quote.error ? (
-        <span className="market-unavailable">{errorLabel(quote.error)}</span>
-      ) : (
-        <>
-          <span className="market-price">{formatVnd(quote.price)}</span>
-          <span className={`market-change ${tone}`}>{formatChangePercent(quote.change_percent)}</span>
-        </>
-      )}
-      <span className="market-volume">{formatVolume(quote.volume)}</span>
+      <span className="market-price">{formatVnd(quote.ref_price)}</span>
+      <span className="market-band">{formatVnd(quote.ceiling)}</span>
+      <span className="market-band">{formatVnd(quote.floor)}</span>
     </button>
   );
 }
 
-function QuoteSummary({ quote }: { quote: MarketQuote }) {
-  const tone = changeTone(quote.change_percent);
+function QuoteSummary({ quote, tradingDate }: {
+  quote: MarketQuote;
+  tradingDate: string | null;
+}) {
   return (
     <dl className="market-summary">
       <div>
-        <dt>Giá</dt>
-        <dd className="market-price">{formatVnd(quote.price)}</dd>
+        <dt>Tham chiếu</dt>
+        <dd className="market-price">{formatVnd(quote.ref_price)}</dd>
       </div>
       <div>
-        <dt>Thay đổi</dt>
-        <dd className={`market-change ${tone}`}>{formatChangePercent(quote.change_percent)}</dd>
+        <dt>Trần</dt>
+        <dd>{formatVnd(quote.ceiling)}</dd>
       </div>
       <div>
-        <dt>Khối lượng</dt>
-        <dd>{formatVolume(quote.volume)}</dd>
+        <dt>Sàn</dt>
+        <dd>{formatVnd(quote.floor)}</dd>
       </div>
       <div>
-        <dt>52 tuần</dt>
-        <dd>
-          {formatVnd(quote.fifty_two_week_low)} – {formatVnd(quote.fifty_two_week_high)}
-        </dd>
+        <dt>Room ngoại</dt>
+        <dd>{formatCount(quote.foreign_room)}</dd>
       </div>
       <div>
-        <dt>Cập nhật</dt>
-        <dd>{formatMarketTime(quote.market_time)}</dd>
+        <dt>Đơn vị giao dịch</dt>
+        <dd>{formatCount(quote.trading_unit)}</dd>
+      </div>
+      <div>
+        <dt>Phiên</dt>
+        <dd>{tradingDate ? formatLongDate(tradingDate) : "—"}</dd>
       </div>
     </dl>
   );
 }
 
 export function MarketPage({ symbol, range, onSelect, onRangeChange }: MarketPageProps) {
+  const [query, setQuery] = useState("");
   const quotes = useQuery({
     queryKey: ["market-quotes"],
     queryFn: ({ signal }) => fetchMarketQuotes(signal),
@@ -169,6 +171,13 @@ export function MarketPage({ symbol, range, onSelect, onRangeChange }: MarketPag
     enabled: symbol !== "",
     staleTime: 60_000,
   });
+
+  const rows = quotes.data?.quotes;
+  const needle = fold(query.trim());
+  const visible = useMemo(
+    () => (rows ?? []).filter((quote) => matches(quote, needle)),
+    [rows, needle],
+  );
 
   const refresh = () => {
     void quotes.refetch();
@@ -190,24 +199,54 @@ export function MarketPage({ symbol, range, onSelect, onRangeChange }: MarketPag
     const selectedQuote = quotes.data.quotes.find((quote) => quote.symbol === symbol);
     body = (
       <div className="market-layout">
-        <ul className="market-list">
-          {quotes.data.quotes.map((quote) => (
-            <li key={quote.symbol}>
-              <QuoteRow
-                quote={quote}
-                selected={quote.symbol === symbol}
-                onSelect={() => onSelect(quote.symbol)}
-              />
+        <div className="market-board">
+          <div className="market-filter">
+            <label htmlFor="market-filter-input">Lọc theo mã hoặc tên</label>
+            <input
+              id="market-filter-input"
+              type="search"
+              value={query}
+              placeholder="Ví dụ: FPT hoặc nhựa an phát"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <p className="market-filter-count" role="status">
+              {needle === ""
+                ? `${quotes.data.quotes.length} mã`
+                : `${visible.length} / ${quotes.data.quotes.length} mã`}
+            </p>
+          </div>
+
+          <ul className="market-list">
+            {/* Column alignment only. Each row carries a full aria-label, so
+                hiding this from assistive technology loses no information. */}
+            <li className="market-row market-list-head" aria-hidden="true">
+              <span>Mã</span>
+              <span>Tên</span>
+              <span>Tham chiếu</span>
+              <span>Trần</span>
+              <span>Sàn</span>
             </li>
-          ))}
-        </ul>
+            {visible.map((quote) => (
+              <li key={quote.symbol}>
+                <QuoteRow
+                  quote={quote}
+                  selected={quote.symbol === symbol}
+                  onSelect={() => onSelect(quote.symbol)}
+                />
+              </li>
+            ))}
+            {visible.length === 0 && (
+              <li className="market-empty-note">Không mã nào khớp từ khoá lọc.</li>
+            )}
+          </ul>
+        </div>
 
         <section className="market-detail" aria-label="Chi tiết mã">
           {symbol === "" ? (
             <AsyncState
               kind="empty"
               title="Chọn một mã để xem biểu đồ"
-              message="Danh sách bên trái là các mã vốn hóa lớn trên HOSE."
+              message="Danh sách bên trái là các mã cổ phiếu niêm yết trên HOSE."
             />
           ) : history.status === "pending" ? (
             <AsyncState kind="loading" title={`Đang tải ${symbol}`} message="Đang lấy lịch sử giá." />
@@ -240,7 +279,16 @@ export function MarketPage({ symbol, range, onSelect, onRangeChange }: MarketPag
                   ))}
                 </div>
               </header>
-              <QuoteSummary quote={history.data.quote} />
+              {selectedQuote && (
+                <QuoteSummary
+                  quote={selectedQuote}
+                  tradingDate={quotes.data.trading_date}
+                />
+              )}
+              <p className="market-reference-note">
+                Tham chiếu là mức giá cơ sở do sàn công bố cho phiên, dùng để tính giá trần
+                và giá sàn — không phải giá khớp lệnh trong phiên.
+              </p>
               <PriceChart
                 symbol={symbol}
                 rangeLabel={RANGE_LABELS[range]}
@@ -261,13 +309,18 @@ export function MarketPage({ symbol, range, onSelect, onRangeChange }: MarketPag
           <h2>Thị trường</h2>
         </div>
         <p className="market-notice">
-          Dữ liệu tham khảo từ nguồn công khai, có thể chậm và chưa điều chỉnh cổ tức. Không
-          dùng cho quyết định đầu tư và không thuộc pipeline quant có quản trị.
+          Bảng giá HOSE theo dữ liệu công khai của SSI: mỗi mã chỉ có giá tham chiếu, giá
+          trần và giá sàn, không có giá khớp lệnh. Biểu đồ là giá đóng cửa của phiên đã
+          đóng gần nhất. Không dùng cho quyết định đầu tư và không thuộc pipeline quant có
+          quản trị.
         </p>
         <div className="market-toolbar-side">
           {quotes.status === "success" && (
             <span className="market-stamp">
-              Cập nhật {formatMarketTime(quotes.data.as_of)}
+              {quotes.data.trading_date
+                ? `Phiên ${formatLongDate(quotes.data.trading_date)} · `
+                : ""}
+              cập nhật {formatMarketTime(quotes.data.as_of)}
               {quotes.data.stale ? " (bản lưu cũ)" : ""}
             </span>
           )}

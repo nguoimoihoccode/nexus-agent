@@ -6,9 +6,8 @@ import {
   CHART_WIDTH,
   PRICE_BOTTOM,
   VOLUME_TOP,
-  changeTone,
   dateTicks,
-  formatChangePercent,
+  formatCount,
   formatLongDate,
   formatMarketTime,
   formatShortDate,
@@ -115,17 +114,6 @@ test("date ticks handle a short series without repeating", () => {
   assert.equal(two.length, 2);
 });
 
-test("change tone and percent degrade to a dash rather than Infinity", () => {
-  assert.equal(changeTone(null), "flat");
-  assert.equal(changeTone(0), "flat");
-  assert.equal(changeTone(1.5), "up");
-  assert.equal(changeTone(-0.24), "down");
-  assert.equal(formatChangePercent(null), "—");
-  assert.equal(formatChangePercent(1.576), "+1.58%");
-  assert.equal(formatChangePercent(-0.24), "-0.24%");
-  assert.equal(formatChangePercent(0), "0.00%");
-});
-
 test("values are formatted with Vietnamese grouping", () => {
   assert.equal(formatVnd(null), "—");
   assert.match(formatVnd(57_200), /^57[.,\s]?200$/);
@@ -133,6 +121,14 @@ test("values are formatted with Vietnamese grouping", () => {
   assert.equal(formatVolume(12_345), "12 ng");
   assert.equal(formatVolume(750), "750");
   assert.equal(formatVolume(null), "—");
+});
+
+test("whole-share counts degrade to a dash rather than NaN", () => {
+  assert.equal(formatCount(null), "—");
+  assert.equal(formatCount(10), "10");
+  assert.match(formatCount(1_234_567), /^1[.,\s]?234[.,\s]?567$/);
+  assert.equal(formatCount(0), "0");
+  assert.equal(formatCount(Number.NaN), "—");
 });
 
 test("dates and provider timestamps are reshaped, never re-zoned", () => {

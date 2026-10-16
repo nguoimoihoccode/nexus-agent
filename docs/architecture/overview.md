@@ -17,7 +17,7 @@ Browser
       |-> quant-researcher -> quant-worker -> Qlib
       `-> ai-trader-agent -> ai-trader-worker -> Alpha Vantage snapshots
   -> read-only market display (no agent involvement)
-      `-> backend/source/integrations/market_quotes.py -> Yahoo Finance chart API
+      `-> backend/source/integrations/market_quotes.py -> SSI iBoard (board and daily history)
   -> PostgreSQL checkpoints, workflow control, approvals, leases, events, evidence, memory
   -> actor-scoped local dataset, artifact, and AI-Trader snapshot storage
 ```
@@ -39,11 +39,24 @@ not streamed prose or browser state, remains the catalog authority.
 
 `GET /v1/market/quotes` and `GET /v1/market/history` back the read-only market page.
 They are a display path, deliberately **outside** the governed quant pipeline: the
-handler writes no staging revision, no fingerprint, and no domain record, and the
-symbol universe is a constant in `backend/source/core/market_universe.py` rather than
-a user-supplied query. The provider is a public third-party host reached from the
-backend only — `connect-src 'self'` in `frontend/nginx.conf` keeps the browser from
-calling it directly — and results are cached in process for
+handler writes no staging revision, no fingerprint, and no domain record. Both routes
+take no user-supplied universe. The quotes route answers with whatever SSI's VNALL board
+group lists as HOSE shares, and the history route accepts a symbol only if that cached
+listing contains it, so there is no repo constant and no free-form symbol to proxy.
+
+The provider is SSI's public iBoard API, reached from the backend only — `connect-src
+'self'` in `frontend/nginx.conf` keeps the browser from calling it directly. It spans two
+hosts: `iboard-query.ssi.com.vn` for the board group and `iboard-api.ssi.com.vn` for daily
+history. **The two use different units** — the board quotes đồng while the history chart
+quotes nghìn đồng — so the chart parser normalizes to đồng before anything else sees it.
+Both hosts are module constants rather than settings, so no runtime value can redirect
+egress.
+
+SSI publishes **no matched in-session price over REST**; that only exists on their MQTT
+stream. The board therefore shows reference, ceiling, and floor for the session, and the
+chart shows daily closes. The board is cached in process for
+`MARKET_UNIVERSE_CACHE_TTL_SECONDS` (longer, because one response covers every listing and
+the bands belong to a whole session) and each chart for
 `MARKET_QUOTES_CACHE_TTL_SECONDS`. This path must not be wired into an agent tool or
 treated as a governed dataset; anything that needs lineage belongs in
 `quant-data-worker` instead.
@@ -104,7 +117,7 @@ require `studio:access`.
 | Domain schema and repositories | `backend/migrations/`, `backend/source/infrastructure/` |
 | Composite dataset/experiment workflows | `backend/source/application/` |
 | Worker contracts and clients | `backend/source/contracts/`, `backend/source/integrations/` |
-| Read-only market display (provider client, symbol universe) | `backend/source/integrations/market_quotes.py`, `backend/source/core/market_universe.py` |
+| Read-only market display (provider client, cached listing) | `backend/source/integrations/market_quotes.py` |
 | Worker domain/application/adapters | each worker's `worker/` package |
 | Browser routes and application shell | `frontend/src/routes/`, `frontend/src/App.tsx` |
 | Browser server state and runtime validation | `frontend/src/api/`, TanStack Query hooks |
@@ -171,9 +184,9 @@ artifacts, lineage and governed-effect evidence remain in the dossier APIs.
   actor key in production; AI-Trader retains its own credential.
 - The read-only market display is the only product path that egresses to a
   credential-free third-party host at request time. It requires `chat:run`, forwards no
-  actor identity, session, or token upstream, accepts symbols only from the repo
-  constant, bounds itself with an in-process TTL cache and a six-connection semaphore,
-  and is documented as unsuitable for investment decisions.
+  actor identity, session, or token upstream, accepts a symbol only when the provider's
+  cached HOSE listing contains it, bounds itself with in-process TTL caches on two
+  tiers, and is documented as unsuitable for investment decisions.
 - Durable approvals guard memory writes/deletes, AI-Trader publications, dataset
   preparation, factor snapshots, experiment submission, and interpretation
   persistence. The decision is either a native human interrupt or a verified

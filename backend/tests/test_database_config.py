@@ -62,6 +62,7 @@ class DatabaseConfigTests(unittest.TestCase):
                 "NEXUS_TENANT_HMAC_KEY",
                 "MARKET_QUOTES_CACHE_TTL_SECONDS",
                 "MARKET_QUOTES_TIMEOUT_SECONDS",
+                "MARKET_UNIVERSE_CACHE_TTL_SECONDS",
                 "POSTGRES_PASSWORD",
                 "TAVILY_API_KEY",
             },
