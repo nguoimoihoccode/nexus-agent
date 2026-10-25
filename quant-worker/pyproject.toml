@@ -7,9 +7,9 @@ name = "nexus-quant-worker"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "fastapi>=0.143.0,<1",
+    "fastapi>=0.161.0,<1",
     "numpy>=2.4.6,<3",
-    "pandas>=3.0.6,<4",
+    "pandas>=3.1.0,<4",
     "psycopg[binary,pool]>=3.3.6,<4",
     "uvicorn[standard]>=0.54.0,<1",
 ]
@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 qlib = [
     "catboost>=1.2.10,<2",
-    "mlflow>=3.17.0,<4",
+    "mlflow>=3.17.2,<4",
     "pyarrow>=23.0.1,<24",
     "pyqlib==0.9.7",
     "scikit-learn>=1.9.1,<2",
