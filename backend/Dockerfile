@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff AS uv
 
 FROM langchain/langgraph-api:3.11@sha256:5e2279e2a21b627a8f76ef178deb58c612d0124abd0f3349b47402af3231c529 AS production-deps
 
@@ -93,7 +93,7 @@ EXPOSE 8000
 
 USER 10001:10001
 
-FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS development
+FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf AS development
 
 ARG APP_UID=10001
 ARG APP_GID=10001
