@@ -1,6 +1,6 @@
-FROM ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 
-FROM langchain/langgraph-api:3.11@sha256:5e2279e2a21b627a8f76ef178deb58c612d0124abd0f3349b47402af3231c529 AS production-deps
+FROM langchain/langgraph-api:3.14@sha256:685ae58a1e52337a33e6842c90874864b5293874bdaa97736ae7f48332e49a5c AS production-deps
 
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -28,7 +28,7 @@ RUN --mount=type=bind,from=uv_cache,target=/root/.cache/uv,rw \
     SSL_CERT_FILE=/tmp/host-ca-certificates.crt \
     uv sync --locked --no-dev --no-editable
 
-FROM langchain/langgraph-api:3.11@sha256:5e2279e2a21b627a8f76ef178deb58c612d0124abd0f3349b47402af3231c529 AS production
+FROM langchain/langgraph-api:3.14@sha256:685ae58a1e52337a33e6842c90874864b5293874bdaa97736ae7f48332e49a5c AS production
 
 ARG APP_UID=10001
 ARG APP_GID=10001
@@ -93,7 +93,7 @@ EXPOSE 8000
 
 USER 10001:10001
 
-FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS development
+FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS development
 
 ARG APP_UID=10001
 ARG APP_GID=10001
