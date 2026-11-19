@@ -331,6 +331,14 @@ class MarketChartTests(unittest.TestCase):
             asyncio.run(client_for(handler).fetch("SSI", "1mo"))
         self.assertEqual(raised.exception.code, "bad_payload")
 
+    def test_an_unrepresentable_timestamp_is_a_bad_payload_not_a_crash(self):
+        for stamp in (1e20, -1e20):
+            handler = server(chart=chart_payload(closes=(19.25,), timestamps=(stamp,), volumes=(1,)))
+            client = client_for(handler)
+            with self.assertRaises(MarketQuoteError) as raised:
+                asyncio.run(client.fetch("SSI", "1mo"))
+            self.assertEqual(raised.exception.code, "bad_payload", stamp)
+
     def test_a_chart_without_a_data_object_is_a_bad_payload(self):
         for payload in ({"code": "SUCCESS"}, {"code": "SUCCESS", "data": []}, []):
             handler = server(chart=payload)

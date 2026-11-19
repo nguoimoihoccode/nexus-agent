@@ -379,9 +379,15 @@ def _parse_chart(symbol: str, payload: Any) -> tuple[dict[str, Any], ...]:
         epoch = _number(stamp)
         if value is None or epoch is None:
             continue
+        try:
+            day = _trading_date(int(epoch))
+        except (OverflowError, OSError, ValueError) as exc:
+            # A timestamp the platform cannot represent means the contract moved,
+            # so it is a bad payload rather than an unhandled 500.
+            raise MarketQuoteError("bad_payload", _BAD_PAYLOAD) from exc
         bars.append(
             {
-                "time": _trading_date(int(epoch)),
+                "time": day,
                 # The chart is quoted in nghìn đồng; the board is already in
                 # đồng. Rounding keeps 20.6 x 1000 from reaching the browser as
                 # 20600.000000000004.
